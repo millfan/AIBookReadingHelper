@@ -114,6 +114,7 @@ private struct SelectionPanel: View {
                 } else {
                     ScrollView {
                         Text(selectedText)
+                            .font(.readingText)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
