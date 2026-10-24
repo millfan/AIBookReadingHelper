@@ -82,29 +82,55 @@ struct ContentView: View {
     }
 }
 
-/// The side panel that shows what is selected on the page. Translation is added next to it in a later step.
+/// The side panel that shows what is selected on the page and its translation.
 private struct SelectionPanel: View {
     let selectedText: String
     let isAnalyzing: Bool
+    @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
+    @AppStorage(SettingsKey.targetLanguage) private var targetLanguageID = TargetLanguage.defaultID
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Selected text")
                 .font(.headline)
-            if isAnalyzing {
-                ProgressView("Finding text on the page…")
-                    .controlSize(.small)
-            } else if selectedText.isEmpty {
-                Text("Drag across a word, phrase or sentence on the page to select it.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ScrollView {
-                    Text(selectedText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if isAnalyzing {
+                    ProgressView("Finding text on the page…")
+                        .controlSize(.small)
+                } else if selectedText.isEmpty {
+                    Text("Drag across a word, phrase or sentence on the page to select it.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        Text(selectedText)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
-            Spacer()
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
+            HStack {
+                Text("Translation")
+                    .font(.headline)
+                Spacer()
+                Picker("Translate to", selection: $targetLanguageID) {
+                    ForEach(TargetLanguage.all) { language in
+                        Text(language.name).tag(language.id)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+            Text("\(engine.menuTitle) · change it in the View menu")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TranslationView(text: selectedText,
+                            engine: engine,
+                            language: TargetLanguage.language(withID: targetLanguageID))
+                .frame(maxHeight: .infinity, alignment: .topLeading)
         }
         .padding()
     }
