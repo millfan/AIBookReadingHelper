@@ -13,7 +13,7 @@ struct ContentView: View {
             GeometryReader { geometry in
                 HStack(spacing: 0) {
                     leftPane
-                        .frame(width: geometry.size.width * 0.75)
+                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height)
                     Divider()
                     SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
                         .frame(maxWidth: .infinity)
