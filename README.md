@@ -5,7 +5,7 @@ A macOS app for reading physical books in another language. Point the Mac's came
 ## Status
 
 - [x] Step 1: Live FaceTime camera preview and page capture
-- [ ] Step 2: Select text on the captured page (Live Text)
+- [x] Step 2: Select text on the captured page (Live Text)
 - [ ] Step 3: Translate the selection
 - [ ] Step 4: Keep captured pages and flip between them
 
@@ -20,4 +20,5 @@ The app needs macOS 14 or later. It is signed to run locally, so no Apple develo
 ## Using it
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
+- Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
 - **Esc** or **Retake** goes back to the live camera.
