@@ -9,10 +9,10 @@ enum TranslationState: Equatable {
     case failed(String)
 }
 
-/// The text and language to translate. A change to either starts a new translation.
+/// The text and direction to translate. A change to either starts a new translation.
 private struct TranslationRequest: Equatable {
     let text: String
-    let language: TargetLanguage
+    let direction: TranslationDirection
 }
 
 /// How long to wait after the selection stops changing before translating, so dragging doesn't send a request per word.
@@ -22,15 +22,15 @@ private let selectionSettleDelay = Duration.milliseconds(400)
 struct TranslationView: View {
     let text: String
     let engine: TranslationEngine
-    let language: TargetLanguage
+    let direction: TranslationDirection
 
     var body: some View {
         switch engine {
         case .google:
-            GoogleTranslationView(text: text, language: language)
+            GoogleTranslationView(text: text, direction: direction)
         case .apple:
             if #available(macOS 15.0, *) {
-                AppleTranslationView(text: text, language: language)
+                AppleTranslationView(text: text, direction: direction)
             } else {
                 TranslationResultView(state: .failed("Apple Translation needs macOS 15 or later. Choose View > Google Translation instead."))
             }
@@ -40,7 +40,7 @@ struct TranslationView: View {
 
 private struct GoogleTranslationView: View {
     let text: String
-    let language: TargetLanguage
+    let direction: TranslationDirection
     @AppStorage(SettingsKey.googleAPIKey) private var apiKey = ""
     @State private var state = TranslationState.idle
 
@@ -58,7 +58,7 @@ private struct GoogleTranslationView: View {
                 TranslationResultView(state: state)
             }
         }
-        .task(id: [text, language.id, apiKey]) {
+        .task(id: [text, direction.rawValue, apiKey]) {
             await translate()
         }
     }
@@ -72,7 +72,10 @@ private struct GoogleTranslationView: View {
         guard !Task.isCancelled else { return }
         state = .translating
         do {
-            let translation = try await GoogleTranslator.translate(text, to: language.googleCode, apiKey: apiKey)
+            let translation = try await GoogleTranslator.translate(text,
+                                                                  from: direction.source.googleCode,
+                                                                  to: direction.target.googleCode,
+                                                                  apiKey: apiKey)
             guard !Task.isCancelled else { return }
             state = .done(translation)
         } catch {
@@ -85,7 +88,7 @@ private struct GoogleTranslationView: View {
 @available(macOS 15.0, *)
 private struct AppleTranslationView: View {
     let text: String
-    let language: TargetLanguage
+    let direction: TranslationDirection
     @State private var state = TranslationState.idle
     @State private var configuration: TranslationSession.Configuration?
     @State private var pendingText = ""
@@ -104,7 +107,7 @@ private struct AppleTranslationView: View {
                     state = .failed(error.localizedDescription)
                 }
             }
-            .task(id: TranslationRequest(text: text, language: language)) {
+            .task(id: TranslationRequest(text: text, direction: direction)) {
                 guard !text.isEmpty else {
                     pendingText = ""
                     state = .idle
@@ -114,12 +117,13 @@ private struct AppleTranslationView: View {
                 guard !Task.isCancelled else { return }
                 pendingText = text
                 state = .translating
-                // The source language is left to Apple to detect. macOS asks to download languages it doesn't have yet.
-                let target = Locale.Language(identifier: language.appleCode)
-                if configuration?.target == target {
+                // Both languages are named, so Apple never has to detect the source. macOS asks to download languages it doesn't have yet.
+                let source = Locale.Language(identifier: direction.source.appleCode)
+                let target = Locale.Language(identifier: direction.target.appleCode)
+                if configuration?.source == source, configuration?.target == target {
                     configuration?.invalidate()
                 } else {
-                    configuration = TranslationSession.Configuration(source: nil, target: target)
+                    configuration = TranslationSession.Configuration(source: source, target: target)
                 }
             }
     }

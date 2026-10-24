@@ -21,12 +21,14 @@ The app needs macOS 14 or later. Apple Translation needs macOS 15 or later. It i
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
-- The translation appears under the selection. Pick the language to translate into from the menu next to **Translation**.
+- The translation appears under the selection.
 - **Esc** or **Retake** goes back to the live camera.
 
-## Translation engines
+## Translation
 
-Choose the engine from the **View** menu:
+Choose the direction from the **View** menu: **ENG → CHN** (English to Simplified Chinese, the default) or **CHN → ENG**.
+
+Choose the engine from the **View** menu too:
 
 - **Apple Translation** (the default) runs on the Mac and needs no account. The first time you use a language, macOS asks to download it.
 - **Google Translation** uses the Google Cloud Translation API. Create an API key for the Cloud Translation API in the Google Cloud console, then paste it into **AI Book Reading Helper > Settings…** (Cmd+,). The key is kept in the app's preferences on this Mac.

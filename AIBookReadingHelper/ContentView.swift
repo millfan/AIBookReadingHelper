@@ -87,7 +87,7 @@ private struct SelectionPanel: View {
     let selectedText: String
     let isAnalyzing: Bool
     @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
-    @AppStorage(SettingsKey.targetLanguage) private var targetLanguageID = TargetLanguage.defaultID
+    @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -112,24 +112,14 @@ private struct SelectionPanel: View {
 
             Divider()
 
-            HStack {
-                Text("Translation")
-                    .font(.headline)
-                Spacer()
-                Picker("Translate to", selection: $targetLanguageID) {
-                    ForEach(TargetLanguage.all) { language in
-                        Text(language.name).tag(language.id)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-            }
-            Text("\(engine.menuTitle) · change it in the View menu")
+            Text("Translation")
+                .font(.headline)
+            Text("\(direction.source.name) to \(direction.target.name) with \(engine.menuTitle) · change both in the View menu")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             TranslationView(text: selectedText,
                             engine: engine,
-                            language: TargetLanguage.language(withID: targetLanguageID))
+                            direction: direction)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
         }
         .padding()

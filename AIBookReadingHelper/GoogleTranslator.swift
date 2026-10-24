@@ -8,6 +8,7 @@ enum GoogleTranslator {
 
     private struct Request: Encodable {
         let q: String
+        let source: String
         let target: String
         let format = "text"
     }
@@ -31,14 +32,14 @@ enum GoogleTranslator {
 
     private static let endpoint = URL(string: "https://translation.googleapis.com/language/translate/v2")!
 
-    /// Translates `text` into the language with the given Google code. The source language is detected by Google.
-    static func translate(_ text: String, to target: String, apiKey: String) async throws -> String {
+    /// Translates `text` between the languages with the given Google codes.
+    static func translate(_ text: String, from source: String, to target: String, apiKey: String) async throws -> String {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // The key goes in a header rather than the URL so it doesn't end up in logs.
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
-        request.httpBody = try JSONEncoder().encode(Request(q: text, target: target))
+        request.httpBody = try JSONEncoder().encode(Request(q: text, source: source, target: target))
 
         let (data, response) = try await URLSession.shared.data(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
