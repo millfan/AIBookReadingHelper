@@ -7,7 +7,6 @@ A macOS app for reading physical books in another language. Point the Mac's came
 - [x] Step 1: Live FaceTime camera preview and page capture
 - [x] Step 2: Select text on the captured page (Live Text)
 - [x] Step 3: Translate the selection (Apple Translation or Google Cloud Translation)
-- [ ] Step 4: Keep captured pages and flip between them
 
 ## Running it
 
