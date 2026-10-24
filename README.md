@@ -15,7 +15,9 @@ A macOS app for reading physical books in another language. Point the Mac's came
 2. Choose the **AIBookReadingHelper** scheme and **My Mac** as the destination, then press **Cmd+R**.
 3. Allow camera access when macOS asks.
 
-The app needs macOS 14 or later. Apple Translation needs macOS 15 or later. It is signed to run locally, so no Apple developer account is needed.
+The app needs macOS 14 or later. Apple Translation needs macOS 15 or later.
+
+The app is signed with a free Apple Development certificate (Personal Team `H95KCGR5JM`). A stable signature lets macOS remember the camera permission across rebuilds. To build it under another Apple ID, choose your own team under **Signing & Capabilities**.
 
 ## Using it
 
