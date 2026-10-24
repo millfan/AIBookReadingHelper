@@ -9,27 +9,15 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // The side panel stays put while the left side switches between the live camera and the captured page.
-            HSplitView {
-                Group {
-                    if let image = camera.capturedImage {
-                        page(image)
-                    } else {
-                        ZStack {
-                            Color.black
-                            switch camera.status {
-                            case .idle, .running:
-                                CameraPreviewView(session: camera.session)
-                            case .unauthorized:
-                                notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
-                            case .unavailable:
-                                notice("No camera was found.")
-                            }
-                        }
-                    }
+            // The left side takes 75% of the window's width and the panel the rest.
+            GeometryReader { geometry in
+                HStack(spacing: 0) {
+                    leftPane
+                        .frame(width: geometry.size.width * 0.75)
+                    Divider()
+                    SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(minWidth: 420)
-                SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
-                    .frame(minWidth: 240, idealWidth: 300)
             }
 
             Divider()
@@ -56,9 +44,29 @@ struct ContentView: View {
             }
             .padding()
         }
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(minWidth: 960, minHeight: 520)
         .task { await camera.start() }
         .onDisappear { camera.stop() }
+    }
+
+    /// The live camera, or the captured page once one has been taken.
+    @ViewBuilder
+    private var leftPane: some View {
+        if let image = camera.capturedImage {
+            page(image)
+        } else {
+            ZStack {
+                Color.black
+                switch camera.status {
+                case .idle, .running:
+                    CameraPreviewView(session: camera.session)
+                case .unauthorized:
+                    notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
+                case .unavailable:
+                    notice("No camera was found.")
+                }
+            }
+        }
     }
 
     @ViewBuilder
