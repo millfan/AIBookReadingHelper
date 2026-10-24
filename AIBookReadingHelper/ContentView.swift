@@ -8,24 +8,15 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let image = camera.capturedImage {
-                HSplitView {
-                    page(image)
-                        .frame(minWidth: 420)
+            // The side panel stays put while the left side switches between the live camera and the captured page.
+            // The left side takes 75% of the window's width and the panel the rest.
+            GeometryReader { geometry in
+                HStack(spacing: 0) {
+                    leftPane
+                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height)
+                    Divider()
                     SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
-                        .frame(minWidth: 240, idealWidth: 300)
-                }
-            } else {
-                ZStack {
-                    Color.black
-                    switch camera.status {
-                    case .idle, .running:
-                        CameraPreviewView(session: camera.session)
-                    case .unauthorized:
-                        notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
-                    case .unavailable:
-                        notice("No camera was found.")
-                    }
+                        .frame(maxWidth: .infinity)
                 }
             }
 
@@ -53,9 +44,29 @@ struct ContentView: View {
             }
             .padding()
         }
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(minWidth: 960, minHeight: 520)
         .task { await camera.start() }
         .onDisappear { camera.stop() }
+    }
+
+    /// The live camera, or the captured page once one has been taken.
+    @ViewBuilder
+    private var leftPane: some View {
+        if let image = camera.capturedImage {
+            page(image)
+        } else {
+            ZStack {
+                Color.black
+                switch camera.status {
+                case .idle, .running:
+                    CameraPreviewView(session: camera.session)
+                case .unauthorized:
+                    notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
+                case .unavailable:
+                    notice("No camera was found.")
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -82,29 +93,46 @@ struct ContentView: View {
     }
 }
 
-/// The side panel that shows what is selected on the page. Translation is added next to it in a later step.
+/// The side panel that shows what is selected on the page and its translation.
 private struct SelectionPanel: View {
     let selectedText: String
     let isAnalyzing: Bool
+    @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
+    @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Selected text")
                 .font(.headline)
-            if isAnalyzing {
-                ProgressView("Finding text on the page…")
-                    .controlSize(.small)
-            } else if selectedText.isEmpty {
-                Text("Drag across a word, phrase or sentence on the page to select it.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ScrollView {
-                    Text(selectedText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if isAnalyzing {
+                    ProgressView("Finding text on the page…")
+                        .controlSize(.small)
+                } else if selectedText.isEmpty {
+                    Text("Drag across a word, phrase or sentence on the page to select it.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        Text(selectedText)
+                            .font(.readingText)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
-            Spacer()
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
+            Text("Translation")
+                .font(.headline)
+            Text("\(direction.source.name) to \(direction.target.name) with \(engine.menuTitle) · change both in the View menu")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TranslationView(text: selectedText,
+                            engine: engine,
+                            direction: direction)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
         }
         .padding()
     }

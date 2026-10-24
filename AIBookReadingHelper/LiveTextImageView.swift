@@ -14,6 +14,11 @@ struct LiveTextImageView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSImageView {
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyUpOrDown
+        // Without these, the photo's pixel size becomes the view's size and it won't fit the space it is given.
+        for orientation in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            imageView.setContentHuggingPriority(.defaultLow, for: orientation)
+            imageView.setContentCompressionResistancePriority(.defaultLow, for: orientation)
+        }
 
         let overlayView = context.coordinator.overlayView
         overlayView.frame = imageView.bounds
@@ -23,6 +28,11 @@ struct LiveTextImageView: NSViewRepresentable {
         overlayView.delegate = context.coordinator
         imageView.addSubview(overlayView)
         return imageView
+    }
+
+    /// Takes exactly the space SwiftUI offers, whatever the size of the photo.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSImageView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
     }
 
     func updateNSView(_ imageView: NSImageView, context: Context) {
