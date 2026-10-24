@@ -8,25 +8,28 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let image = camera.capturedImage {
-                HSplitView {
-                    page(image)
-                        .frame(minWidth: 420)
-                    SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
-                        .frame(minWidth: 240, idealWidth: 300)
-                }
-            } else {
-                ZStack {
-                    Color.black
-                    switch camera.status {
-                    case .idle, .running:
-                        CameraPreviewView(session: camera.session)
-                    case .unauthorized:
-                        notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
-                    case .unavailable:
-                        notice("No camera was found.")
+            // The side panel stays put while the left side switches between the live camera and the captured page.
+            HSplitView {
+                Group {
+                    if let image = camera.capturedImage {
+                        page(image)
+                    } else {
+                        ZStack {
+                            Color.black
+                            switch camera.status {
+                            case .idle, .running:
+                                CameraPreviewView(session: camera.session)
+                            case .unauthorized:
+                                notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
+                            case .unavailable:
+                                notice("No camera was found.")
+                            }
+                        }
                     }
                 }
+                .frame(minWidth: 420)
+                SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
+                    .frame(minWidth: 240, idealWidth: 300)
             }
 
             Divider()
