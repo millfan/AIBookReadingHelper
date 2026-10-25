@@ -24,6 +24,7 @@ The app is signed with a free Apple Development certificate (Personal Team `H95K
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
 - The translation appears under the selection.
 - **Esc** or **Retake** goes back to the live camera.
+- **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
 
 ## Translation
 
