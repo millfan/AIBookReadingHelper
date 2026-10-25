@@ -1,6 +1,6 @@
 # AIBookReadingHelper
 
-A macOS app for reading physical books in another language. Point the Mac's camera at a page, capture it, select a word, phrase or sentence on the photo, and see its translation on screen.
+A macOS app for reading physical books in another language. Point the Mac's camera at a page, capture it, select a word, phrase or sentence on the photo, and see its translation on screen. HTML files can be opened and translated the same way.
 
 ## Status
 
@@ -24,6 +24,7 @@ The app is signed with a free Apple Development certificate (Personal Team `H95K
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
 - The translation appears under the selection.
 - **Esc** or **Retake** goes back to the live camera.
+- **Open HTML…** (Cmd+O) shows an HTML file in place of the camera. Select text in it to translate it, just like a captured page. **Back to camera** (Esc) closes it. Only the file itself is opened, so images or styles stored next to it may not show.
 
 ## Translation
 

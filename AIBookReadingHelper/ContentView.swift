@@ -1,10 +1,15 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import VisionKit
 
 struct ContentView: View {
     @StateObject private var camera = CameraController()
     @State private var selectedText = ""
     @State private var isAnalyzing = false
+    /// The HTML file shown in place of the camera, if one has been opened.
+    @State private var htmlURL: URL?
+    @State private var isChoosingHTML = false
+    @State private var htmlErrorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,12 +28,21 @@ struct ContentView: View {
             Divider()
 
             HStack {
-                if let errorMessage = camera.errorMessage {
+                if let errorMessage = htmlErrorMessage ?? camera.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                 }
                 Spacer()
-                if camera.capturedImage == nil {
+                Button("Open HTML…", systemImage: "doc.richtext") {
+                    isChoosingHTML = true
+                }
+                .keyboardShortcut("o", modifiers: .command)
+                if htmlURL != nil {
+                    Button("Back to camera", systemImage: "camera") {
+                        closeHTML()
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
+                } else if camera.capturedImage == nil {
                     Button("Capture page", systemImage: "camera") {
                         camera.capturePage()
                     }
@@ -45,14 +59,24 @@ struct ContentView: View {
             .padding()
         }
         .frame(minWidth: 960, minHeight: 520)
+        .fileImporter(isPresented: $isChoosingHTML, allowedContentTypes: [.html]) { result in
+            switch result {
+            case .success(let url):
+                openHTML(url)
+            case .failure(let error):
+                htmlErrorMessage = error.localizedDescription
+            }
+        }
         .task { await camera.start() }
         .onDisappear { camera.stop() }
     }
 
-    /// The live camera, or the captured page once one has been taken.
+    /// An opened HTML file, the captured page once one has been taken, or else the live camera.
     @ViewBuilder
     private var leftPane: some View {
-        if let image = camera.capturedImage {
+        if let htmlURL {
+            HTMLDocumentView(url: htmlURL, selectedText: $selectedText)
+        } else if let image = camera.capturedImage {
             page(image)
         } else {
             ZStack {
@@ -83,6 +107,23 @@ struct ContentView: View {
                 notice("Live Text isn't available on this Mac, so text on the page can't be selected.")
             }
         }
+    }
+
+    private func openHTML(_ url: URL) {
+        closeHTML()
+        // The file picker grants sandboxed access to the file only while it is being accessed.
+        guard url.startAccessingSecurityScopedResource() else {
+            htmlErrorMessage = "The app wasn't allowed to open \(url.lastPathComponent)."
+            return
+        }
+        htmlURL = url
+    }
+
+    private func closeHTML() {
+        htmlURL?.stopAccessingSecurityScopedResource()
+        htmlURL = nil
+        htmlErrorMessage = nil
+        selectedText = ""
     }
 
     private func notice(_ text: String) -> some View {
