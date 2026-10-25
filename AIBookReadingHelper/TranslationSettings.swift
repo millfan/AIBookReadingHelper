@@ -5,6 +5,7 @@ enum SettingsKey {
     static let engine = "translationEngine"
     static let direction = "translationDirection"
     static let googleAPIKey = "googleAPIKey"
+    static let rotateCamera = "rotateCamera"
 }
 
 /// The service that translates the selected text. Chosen from the View menu.

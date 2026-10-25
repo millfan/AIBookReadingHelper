@@ -16,11 +16,12 @@ struct AIBookReadingHelperApp: App {
     }
 }
 
-/// Adds the choice of translation engine and direction to the top of the View menu.
+/// Adds the choice of translation engine and direction, and the camera rotation, to the top of the View menu.
 /// The defaults are Apple Translation and ENG → CHN.
 private struct TranslationCommands: Commands {
     @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
     @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
+    @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
 
     var body: some Commands {
         CommandGroup(before: .toolbar) {
@@ -31,6 +32,10 @@ private struct TranslationCommands: Commands {
             ForEach(TranslationDirection.allCases) { option in
                 Toggle(option.menuTitle, isOn: checkmark($direction, option))
             }
+            Divider()
+            // For a camera that sees the book upside down, such as one looking down at a page from across the desk.
+            Toggle("Rotate Camera 180°", isOn: $rotateCamera)
+                .keyboardShortcut("r", modifiers: [.command, .shift])
             Divider()
         }
     }

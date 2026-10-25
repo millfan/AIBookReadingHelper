@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var camera = CameraController()
     @State private var selectedText = ""
     @State private var isAnalyzing = false
+    @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +31,7 @@ struct ContentView: View {
                 Spacer()
                 if camera.capturedImage == nil {
                     Button("Capture page", systemImage: "camera") {
-                        camera.capturePage()
+                        camera.capturePage(rotated180: rotateCamera)
                     }
                     .keyboardShortcut(.space, modifiers: [])
                     .disabled(camera.status != .running)
@@ -59,7 +60,7 @@ struct ContentView: View {
                 Color.black
                 switch camera.status {
                 case .idle, .running:
-                    CameraPreviewView(session: camera.session)
+                    CameraPreviewView(session: camera.session, rotated180: rotateCamera)
                 case .unauthorized:
                     notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
                 case .unavailable:
