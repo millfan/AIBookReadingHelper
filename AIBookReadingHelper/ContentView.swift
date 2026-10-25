@@ -30,6 +30,12 @@ struct ContentView: View {
                 }
                 Spacer()
                 if camera.capturedImage == nil {
+                    // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
+                    Toggle(isOn: $rotateCamera) {
+                        Label("Rotate 180°", systemImage: "rotate.right")
+                    }
+                    .toggleStyle(.button)
+                    .disabled(camera.status != .running)
                     Button("Capture page", systemImage: "camera") {
                         camera.capturePage(rotated180: rotateCamera)
                     }
