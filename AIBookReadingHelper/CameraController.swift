@@ -19,6 +19,7 @@ final class CameraController: NSObject, ObservableObject {
     private let photoOutput = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "AIBookReadingHelper.camera")
     private var isConfigured = false
+    private var rotatePendingCapture = false
 
     func start() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -60,9 +61,11 @@ final class CameraController: NSObject, ObservableObject {
         }
     }
 
-    func capturePage() {
+    /// Takes a photo of the page. `rotated180` turns the photo upside down to match a rotated preview.
+    func capturePage(rotated180: Bool) {
         guard status == .running else { return }
         errorMessage = nil
+        rotatePendingCapture = rotated180
         photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
     }
 
@@ -101,10 +104,34 @@ extension CameraController: AVCapturePhotoCaptureDelegate {
         let message = error?.localizedDescription
         Task { @MainActor in
             if let image {
-                self.capturedImage = image
+                self.capturedImage = self.rotatePendingCapture ? Self.rotated180(image) : image
             } else {
                 self.errorMessage = message ?? "The photo could not be read."
             }
         }
+    }
+}
+
+extension CameraController {
+    /// Returns `image` turned upside down, so Live Text reads a page photographed with the camera rotated.
+    static func rotated180(_ image: NSImage) -> NSImage {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(data: nil,
+                                      width: cgImage.width,
+                                      height: cgImage.height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: 0,
+                                      space: colorSpace,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            return image
+        }
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        context.translateBy(x: width, y: height)
+        context.rotate(by: .pi)
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let rotated = context.makeImage() else { return image }
+        return NSImage(cgImage: rotated, size: image.size)
     }
 }

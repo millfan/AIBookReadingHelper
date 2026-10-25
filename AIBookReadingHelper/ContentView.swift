@@ -6,6 +6,7 @@ struct ContentView: View {
     @StateObject private var camera = CameraController()
     @State private var selectedText = ""
     @State private var isAnalyzing = false
+    @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
     /// The HTML file shown in place of the camera, if one has been opened.
     @State private var htmlURL: URL?
     @State private var isChoosingHTML = false
@@ -43,8 +44,14 @@ struct ContentView: View {
                     }
                     .keyboardShortcut(.escape, modifiers: [])
                 } else if camera.capturedImage == nil {
+                    // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
+                    Toggle(isOn: $rotateCamera) {
+                        Label("Rotate 180°", systemImage: "rotate.right")
+                    }
+                    .toggleStyle(.button)
+                    .disabled(camera.status != .running)
                     Button("Capture page", systemImage: "camera") {
-                        camera.capturePage()
+                        camera.capturePage(rotated180: rotateCamera)
                     }
                     .keyboardShortcut(.space, modifiers: [])
                     .disabled(camera.status != .running)
@@ -83,7 +90,7 @@ struct ContentView: View {
                 Color.black
                 switch camera.status {
                 case .idle, .running:
-                    CameraPreviewView(session: camera.session)
+                    CameraPreviewView(session: camera.session, rotated180: rotateCamera)
                 case .unauthorized:
                     notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
                 case .unavailable:
