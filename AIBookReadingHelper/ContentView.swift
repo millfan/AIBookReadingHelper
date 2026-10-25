@@ -9,14 +9,14 @@ struct ContentView: View {
     @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
     /// How much of the window's width the left side takes, set by dragging the divider.
     @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
-    /// The HTML file shown in place of the camera, if one has been opened.
-    @State private var htmlURL: URL?
-    @State private var isChoosingHTML = false
-    @State private var htmlErrorMessage: String?
+    /// The HTML or PDF file shown in place of the camera, if one has been opened.
+    @State private var documentURL: URL?
+    @State private var isChoosingDocument = false
+    @State private var documentErrorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            // The side panel stays put while the left side switches between the camera, a captured page and an HTML file.
+            // The side panel stays put while the left side switches between the camera, a captured page and an opened file.
             // The left side starts at 75% of the window's width; dragging the divider changes that.
             GeometryReader { geometry in
                 let leftWidth = clampedLeftWidth(geometry.size.width * leftFraction, in: geometry.size.width)
@@ -35,18 +35,18 @@ struct ContentView: View {
             Divider()
 
             HStack {
-                if let errorMessage = htmlErrorMessage ?? camera.errorMessage {
+                if let errorMessage = documentErrorMessage ?? camera.errorMessage {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                 }
                 Spacer()
-                Button("Open HTML…", systemImage: "doc.richtext") {
-                    isChoosingHTML = true
+                Button("Open File…", systemImage: "doc.richtext") {
+                    isChoosingDocument = true
                 }
                 .keyboardShortcut("o", modifiers: .command)
-                if htmlURL != nil {
+                if documentURL != nil {
                     Button("Back to camera", systemImage: "camera") {
-                        closeHTML()
+                        closeDocument()
                     }
                     .keyboardShortcut(.escape, modifiers: [])
                 } else if camera.capturedImage == nil {
@@ -72,23 +72,27 @@ struct ContentView: View {
             .padding()
         }
         .frame(minWidth: 960, minHeight: 520)
-        .fileImporter(isPresented: $isChoosingHTML, allowedContentTypes: [.html]) { result in
+        .fileImporter(isPresented: $isChoosingDocument, allowedContentTypes: [.html, .pdf]) { result in
             switch result {
             case .success(let url):
-                openHTML(url)
+                openDocument(url)
             case .failure(let error):
-                htmlErrorMessage = error.localizedDescription
+                documentErrorMessage = error.localizedDescription
             }
         }
         .task { await camera.start() }
         .onDisappear { camera.stop() }
     }
 
-    /// An opened HTML file, the captured page once one has been taken, or else the live camera.
+    /// An opened HTML or PDF file, the captured page once one has been taken, or else the live camera.
     @ViewBuilder
     private var leftPane: some View {
-        if let htmlURL {
-            HTMLDocumentView(url: htmlURL, selectedText: $selectedText)
+        if let documentURL {
+            if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
+                PDFDocumentView(url: documentURL, selectedText: $selectedText)
+            } else {
+                HTMLDocumentView(url: documentURL, selectedText: $selectedText)
+            }
         } else if let image = camera.capturedImage {
             page(image)
         } else {
@@ -127,20 +131,20 @@ struct ContentView: View {
         min(max(width, 420), max(totalWidth - 240, 420))
     }
 
-    private func openHTML(_ url: URL) {
-        closeHTML()
+    private func openDocument(_ url: URL) {
+        closeDocument()
         // The file picker grants sandboxed access to the file only while it is being accessed.
         guard url.startAccessingSecurityScopedResource() else {
-            htmlErrorMessage = "The app wasn't allowed to open \(url.lastPathComponent)."
+            documentErrorMessage = "The app wasn't allowed to open \(url.lastPathComponent)."
             return
         }
-        htmlURL = url
+        documentURL = url
     }
 
-    private func closeHTML() {
-        htmlURL?.stopAccessingSecurityScopedResource()
-        htmlURL = nil
-        htmlErrorMessage = nil
+    private func closeDocument() {
+        documentURL?.stopAccessingSecurityScopedResource()
+        documentURL = nil
+        documentErrorMessage = nil
         selectedText = ""
     }
 
