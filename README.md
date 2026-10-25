@@ -18,6 +18,10 @@ The app needs macOS 14 or later. Apple Translation needs macOS 15 or later.
 
 The app is signed with a free Apple Development certificate (Personal Team `H95KCGR5JM`). A stable signature lets macOS remember the camera permission across rebuilds. To build it under another Apple ID, choose your own team under **Signing & Capabilities**.
 
+## Installing it as an app
+
+Run `scripts/make-dmg.sh` from the project folder. It builds a Release copy and creates `dist/AIBookReadingHelper.dmg`. Open the DMG and drag **AIBookReadingHelper** onto **Applications**. The app is signed with the Personal Team, so it runs on Macs signed in to the same Apple ID.
+
 ## Using it
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
