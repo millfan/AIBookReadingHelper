@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var selectedText = ""
     @State private var isAnalyzing = false
     @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
+    /// How much of the window's width the left side takes, set by dragging the divider.
+    @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
     /// The HTML file shown in place of the camera, if one has been opened.
     @State private var htmlURL: URL?
     @State private var isChoosingHTML = false
@@ -14,16 +16,20 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The side panel stays put while the left side switches between the live camera and the captured page.
-            // The left side takes 75% of the window's width and the panel the rest.
+            // The side panel stays put while the left side switches between the camera, a captured page and an HTML file.
+            // The left side starts at 75% of the window's width; dragging the divider changes that.
             GeometryReader { geometry in
+                let leftWidth = clampedLeftWidth(geometry.size.width * leftFraction, in: geometry.size.width)
                 HStack(spacing: 0) {
                     leftPane
-                        .frame(width: geometry.size.width * 0.75, height: geometry.size.height)
-                    Divider()
+                        .frame(width: leftWidth, height: geometry.size.height)
+                    PaneDivider { location in
+                        leftFraction = clampedLeftWidth(location, in: geometry.size.width) / geometry.size.width
+                    }
                     SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
                         .frame(maxWidth: .infinity)
                 }
+                .coordinateSpace(.named(PaneDivider.coordinateSpace))
             }
 
             Divider()
@@ -116,6 +122,11 @@ struct ContentView: View {
         }
     }
 
+    /// Keeps both sides usable: at least 420 points on the left and 240 for the panel.
+    private func clampedLeftWidth(_ width: CGFloat, in totalWidth: CGFloat) -> CGFloat {
+        min(max(width, 420), max(totalWidth - 240, 420))
+    }
+
     private func openHTML(_ url: URL) {
         closeHTML()
         // The file picker grants sandboxed access to the file only while it is being accessed.
@@ -138,6 +149,29 @@ struct ContentView: View {
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
             .padding()
+    }
+}
+
+/// The line between the left side and the side panel. Dragging it reports the pointer's position across the window.
+private struct PaneDivider: View {
+    static let coordinateSpace = "panes"
+    let onDrag: (CGFloat) -> Void
+
+    var body: some View {
+        Divider()
+            // A wider invisible strip makes the one-point line easy to grab.
+            .overlay {
+                Color.clear
+                    .frame(width: 9)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.coordinateSpace))
+                            .onChanged { onDrag($0.location.x) }
+                    )
+            }
     }
 }
 

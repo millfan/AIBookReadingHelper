@@ -24,6 +24,7 @@ The app is signed with a free Apple Development certificate (Personal Team `H95K
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
 - The translation appears under the selection.
 - **Esc** or **Retake** goes back to the live camera.
+- Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
 - **Open HTML…** (Cmd+O) shows an HTML file in place of the camera. Select text in it to translate it, just like a captured page. **Back to camera** (Esc) closes it. Only the file itself is opened, so images or styles stored next to it may not show.
 - **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
 
