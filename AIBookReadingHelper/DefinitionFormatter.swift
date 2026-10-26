@@ -33,6 +33,13 @@ enum DefinitionFormatter {
         "abbreviation", "prefix", "suffix", "combining form", "symbol", "number", "contraction",
     ]
     private static let sectionNames = ["PHRASAL VERBS", "PHRASES", "DERIVATIVES", "USAGE", "ORIGIN", "NOTE", "SYNONYMS", "ANTONYMS"]
+    /// Words that start a definition's object, as in "hoist the sails" or "inform someone".
+    private static let objectWords: Set<String> = ["the", "a", "an", "one's", "someone", "something", "someone's"]
+    /// Words that belong to phrases, so a definition never starts with them.
+    private static let phraseWords: Set<String> = [
+        "of", "for", "to", "in", "on", "at", "by", "with", "from", "into", "out", "up", "down", "off", "over",
+        "or", "and", "it", "someone", "something", "oneself", "one's", "a", "an", "the",
+    ]
     /// Labels that come between a phrase and its definition, as in "run the show informal".
     private static let labelWords = [
         "informal", "archaic", "dated", "formal", "literary", "humorous", "derogatory", "offensive", "rare", "proverb",
@@ -84,7 +91,8 @@ enum DefinitionFormatter {
             breaks.append((start, 0, .phrase))
             // A phrase starts in lowercase, so sense numbers, "•" and capitalized example sentences don't count,
             // and "!" is left out because it ends exclamations inside examples.
-            for boundary in matches(#"(?<=[.?])\s+(?=\p{Ll})"#, in: text, range: NSRange(location: start, length: end - start)) {
+            // A note in brackets can run straight into the next phrase: "…cherished]apples and oranges".
+            for boundary in matches(#"(?<=[.?])\s+(?=\p{Ll})|(?<=\])(?=\p{Ll})"#, in: text, range: NSRange(location: start, length: end - start)) {
                 let after = boundary.range.upperBound
                 if boundary.range.location >= 4,
                    text.substring(with: NSRange(location: boundary.range.location - 4, length: 4)) == "etc." {
@@ -93,7 +101,7 @@ enum DefinitionFormatter {
                 // The phrase uses the word within its first few words, before any example.
                 let opening = text.substring(with: NSRange(location: after, length: min(60, end - after)))
                     .lowercased().prefix { $0 != ":" }
-                if opening.split(separator: " ").prefix(4).contains(where: { $0.hasPrefix(stem) }) {
+                if opening.split(separator: " ").prefix(7).contains(where: { $0.hasPrefix(stem) }) {
                     breaks.append((after, 0, .phrase))
                 }
             }
@@ -174,17 +182,33 @@ enum DefinitionFormatter {
         let window = NSRange(location: 0, length: min(ns.length, 60))
         var end = ns.length
 
-        if let marker = matches(#"\s(?:\(|\[|\||1\s)|:"#, in: ns, range: window).first {
+        // "take it from me I can assure you": a definition can start with "I".
+        if let marker = matches(#"\s(?:\(|\[|\||1\s|I\s)|:"#, in: ns, range: window).first {
             end = min(end, marker.range.location)
         }
         let labels = labelWords.joined(separator: "|")
-        if let label = matches("\\s(?:\(labels))\\b", in: ns, range: window).first {
+        let label = matches("\\s(?:\(labels))\\b", in: ns, range: window).first
+        if let label {
             end = min(end, label.range.location)
         }
         if let exclamation = matches("!", in: ns, range: window).first {
             end = min(end, exclamation.range.upperBound)
         }
 
+        // "set sail hoist the sails": a definition often starts with a word followed by "the", "someone" and so on.
+        let words = text.split(separator: " ")
+        for index in 2..<min(words.count - 1, 10) {
+            let word = words[index].lowercased()
+            guard !word.hasPrefix(stem), !phraseWords.contains(word),
+                  objectWords.contains(words[index + 1].lowercased()) else { continue }
+            end = min(end, (words[..<index].joined(separator: " ") as NSString).length)
+            break
+        }
+
+        // A label is a surer sign than a verb: "the apple never falls far from the tree proverb …".
+        guard label == nil else {
+            return (ns.substring(to: end).trimmingCharacters(in: .whitespaces) as NSString).length
+        }
         let tagger = NLTagger(tagSchemes: [.lexicalClass])
         tagger.string = text
         var index = 0
