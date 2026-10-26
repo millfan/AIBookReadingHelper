@@ -77,7 +77,7 @@ enum DefinitionFormatter {
         for match in matches("^(?:\(partOfSpeech))\\b", in: text, range: body) {
             breaks.append((match.range.location, 0, .partOfSpeech))
         }
-        for match in matches("(?<=[.)\\]]\\s)(?:\(partOfSpeech))(?=\\s1\\s)", in: text, range: body) {
+        for match in matches("(?<=[.)\\]]\\s)(?:\(partOfSpeech))(?=\\s(?:\\[[^\\]]*\\]\\s|\\([^)]*\\)\\s)*1\\s)", in: text, range: body) {
             breaks.append((match.range.location, 0, .partOfSpeech))
         }
         let sections = matches("(?<=\\s)(\(sectionNames.joined(separator: "|")))(?=\\s)", in: text, range: body)
@@ -195,20 +195,34 @@ enum DefinitionFormatter {
             end = min(end, exclamation.range.upperBound)
         }
 
-        // "set sail hoist the sails": a definition often starts with a word followed by "the", "someone" and so on.
-        let words = text.split(separator: " ")
-        for index in stride(from: 2, to: min(words.count - 1, 10), by: 1) {
-            let word = words[index].lowercased()
-            guard !word.hasPrefix(stem), !phraseWords.contains(word),
-                  objectWords.contains(words[index + 1].lowercased()) else { continue }
-            end = min(end, (words[..<index].joined(separator: " ") as NSString).length)
-            break
-        }
-
-        // A label is a surer sign than a verb: "the apple never falls far from the tree proverb …".
+        // A label is a surer sign than anything below: "you can't judge a book by its cover proverb …".
         guard label == nil else {
             return (ns.substring(to: end).trimmingCharacters(in: .whitespaces) as NSString).length
         }
+
+        let words = text.split(separator: " ")
+        func length(before index: Int) -> Int {
+            (words[..<index].joined(separator: " ") as NSString).length
+        }
+        for index in stride(from: 2, to: min(words.count - 1, 10), by: 1) {
+            let word = words[index].lowercased()
+            let next = words[index + 1].lowercased()
+            let previous = words[index - 1].lowercased()
+            // "one for the books an extraordinary feat": the phrase ends with the word, and the definition starts.
+            if previous.hasPrefix(stem), ["a", "an"].contains(word) {
+                end = min(end, length(before: index))
+                break
+            }
+            guard !word.hasPrefix(stem), !phraseWords.contains(word) || word == words[0].lowercased() else { continue }
+            // "set sail hoist the sails": a word followed by "the", "someone" and so on;
+            // "by the book strictly according to the rules": an adverb;
+            // "in my book in my opinion": the phrase's first word again.
+            if objectWords.contains(next) || (word.hasSuffix("ly") && word.count > 4) || word == words[0].lowercased() {
+                end = min(end, length(before: index))
+                break
+            }
+        }
+
         let tagger = NLTagger(tagSchemes: [.lexicalClass])
         tagger.string = text
         var index = 0
