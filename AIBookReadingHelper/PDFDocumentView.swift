@@ -22,6 +22,7 @@ struct PDFDocumentView: NSViewRepresentable {
     func updateNSView(_ pdfView: PDFView, context: Context) {
         context.coordinator.selectedText = $selectedText
         guard pdfView.document?.documentURL != url else { return }
+        context.coordinator.lastSelection = nil
         pdfView.document = PDFDocument(url: url)
     }
 
@@ -33,6 +34,8 @@ struct PDFDocumentView: NSViewRepresentable {
     final class Coordinator: NSObject {
         var selectedText: Binding<String>
         private var observer: NSObjectProtocol?
+        /// The last non-empty selection, put back when the PDF loses its selection by losing the focus.
+        var lastSelection: PDFSelection?
 
         init(selectedText: Binding<String>) {
             self.selectedText = selectedText
@@ -43,9 +46,24 @@ struct PDFDocumentView: NSViewRepresentable {
                                                               object: pdfView,
                                                               queue: .main) { [weak self, weak pdfView] _ in
                 MainActor.assumeIsolated {
-                    self?.selectedText.wrappedValue = pdfView?.currentSelection?.string ?? ""
+                    guard let self, let pdfView else { return }
+                    self.selectionChanged(in: pdfView)
                 }
             }
+        }
+
+        private func selectionChanged(in pdfView: PDFView) {
+            let text = pdfView.currentSelection?.string ?? ""
+            // If the selection went away because something else, such as the side panel, took the focus,
+            // put it back, so only a click inside the PDF clears it.
+            if text.isEmpty, !pdfView.hasFocus, let lastSelection {
+                pdfView.setCurrentSelection(lastSelection, animate: false)
+                return
+            }
+            if !text.isEmpty {
+                lastSelection = pdfView.currentSelection
+            }
+            selectedText.wrappedValue = text
         }
 
         func stopObserving() {

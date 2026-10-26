@@ -73,6 +73,11 @@ struct LiveTextImageView: NSViewRepresentable {
 
         nonisolated func textSelectionDidChange(_ overlayView: ImageAnalysisOverlayView) {
             MainActor.assumeIsolated {
+                // Keep the last selection when something else, such as the side panel, took the focus,
+                // so only a click on the page clears it.
+                if overlayView.selectedText.isEmpty, !overlayView.hasFocus, !isAnalyzing.wrappedValue {
+                    return
+                }
                 selectedText.wrappedValue = overlayView.selectedText
             }
         }

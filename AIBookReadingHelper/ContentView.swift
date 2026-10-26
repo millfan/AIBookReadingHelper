@@ -208,6 +208,13 @@ private struct SelectionPanel: View {
     let isAnalyzing: Bool
     @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
     @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
+    /// What is selected inside the panel's own copy of the selected text.
+    @State private var panelSelection = ""
+
+    /// The word to look up: one selected in the panel, or else the page's selection when it is a single word.
+    private var dictionaryWord: String? {
+        DictionaryView.singleWord(in: panelSelection) ?? DictionaryView.singleWord(in: selectedText)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -221,13 +228,10 @@ private struct SelectionPanel: View {
                     Text("Drag across a word, phrase or sentence on the page to select it.")
                         .foregroundStyle(.secondary)
                 } else {
-                    // Not selectable: clicking selectable text here would take the focus from the page,
-                    // and the page would drop its selection.
-                    ScrollView {
-                        Text(selectedText)
-                            .font(.readingText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    // Selecting a word here looks it up in the dictionary. The page keeps its own selection meanwhile.
+                    SelectableTextView(text: selectedText,
+                                       font: .systemFont(ofSize: NSFont.systemFontSize * 2),
+                                       selection: $panelSelection)
                 }
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
@@ -243,7 +247,18 @@ private struct SelectionPanel: View {
                             engine: engine,
                             direction: direction)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
+
+            if let dictionaryWord {
+                Divider()
+                Text("Dictionary: \(dictionaryWord)")
+                    .font(.headline)
+                DictionaryView(word: dictionaryWord)
+                    .frame(maxHeight: .infinity, alignment: .topLeading)
+            }
         }
         .padding()
+        .onChange(of: selectedText) {
+            panelSelection = ""
+        }
     }
 }
