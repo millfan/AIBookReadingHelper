@@ -15,11 +15,6 @@ private struct TranslationRequest: Equatable {
     let direction: TranslationDirection
 }
 
-extension Font {
-    /// The font for the selected text and its translation: twice the normal system size, so both are easy to read.
-    static let readingText = Font.system(size: NSFont.systemFontSize * 2)
-}
-
 /// How long to wait after the selection stops changing before translating, so dragging doesn't send a request per word.
 private let selectionSettleDelay = Duration.milliseconds(400)
 
