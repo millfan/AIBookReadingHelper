@@ -197,7 +197,7 @@ enum DefinitionFormatter {
 
         // "set sail hoist the sails": a definition often starts with a word followed by "the", "someone" and so on.
         let words = text.split(separator: " ")
-        for index in 2..<min(words.count - 1, 10) {
+        for index in stride(from: 2, to: min(words.count - 1, 10), by: 1) {
             let word = words[index].lowercased()
             guard !word.hasPrefix(stem), !phraseWords.contains(word),
                   objectWords.contains(words[index + 1].lowercased()) else { continue }
