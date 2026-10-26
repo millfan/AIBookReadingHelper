@@ -213,7 +213,7 @@ private struct SelectionPanel: View {
 
     /// The word to look up: one selected in the panel, or else the page's selection when it is a single word.
     private var dictionaryWord: String? {
-        DictionaryView.singleWord(in: panelSelection) ?? DictionaryView.singleWord(in: selectedText)
+        WordDictionary.singleWord(in: panelSelection) ?? WordDictionary.singleWord(in: selectedText)
     }
 
     var body: some View {
@@ -243,18 +243,12 @@ private struct SelectionPanel: View {
             Text("\(direction.source.name) to \(direction.target.name) with \(engine.menuTitle) · change both in the View menu")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // The dictionary definition of a single word follows the translation in the same view.
             TranslationView(text: selectedText,
                             engine: engine,
-                            direction: direction)
+                            direction: direction,
+                            dictionaryWord: dictionaryWord)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
-
-            if let dictionaryWord {
-                Divider()
-                Text("Dictionary: \(dictionaryWord)")
-                    .font(.headline)
-                DictionaryView(word: dictionaryWord)
-                    .frame(maxHeight: .infinity, alignment: .topLeading)
-            }
         }
         .padding()
         .onChange(of: selectedText) {
