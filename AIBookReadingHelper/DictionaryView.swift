@@ -7,11 +7,8 @@ struct DictionaryView: View {
 
     var body: some View {
         if let definition = Self.definition(of: word) {
-            ScrollView {
-                Text(definition)
-                    .font(.system(size: NSFont.systemFontSize * 1.5))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            SelectableTextView(attributedText: DefinitionFormatter.attributedString(for: definition,
+                                                                                     fontSize: NSFont.systemFontSize * 1.4))
         } else {
             Text("The dictionary has no entry for “\(word)”. Dictionaries can be added in the Dictionary app's Settings.")
                 .foregroundStyle(.secondary)

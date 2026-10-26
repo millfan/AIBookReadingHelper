@@ -4,9 +4,19 @@ import SwiftUI
 /// Shows text that can be selected but not edited, and reports the part that is selected.
 /// SwiftUI's selectable Text can't say what is selected, so this wraps an NSTextView.
 struct SelectableTextView: NSViewRepresentable {
-    let text: String
-    let font: NSFont
+    let content: NSAttributedString
     @Binding var selection: String
+
+    init(text: String, font: NSFont, selection: Binding<String>) {
+        content = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
+        _selection = selection
+    }
+
+    /// Rich text, such as a laid-out dictionary definition.
+    init(attributedText: NSAttributedString, selection: Binding<String> = .constant("")) {
+        content = attributedText
+        _selection = selection
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(selection: $selection)
@@ -38,17 +48,14 @@ struct SelectableTextView: NSViewRepresentable {
     func updateNSView(_ scrollView: TextScrollView, context: Context) {
         context.coordinator.selection = $selection
         let textView = scrollView.textView
-        // Setting these on every update would disturb a selection being made.
-        if textView.font != font {
-            textView.font = font
-        }
-        if textView.textColor != .labelColor {
-            textView.textColor = .labelColor
-        }
-        guard textView.string != text else { return }
+        // Replacing the text on every update would disturb a selection being made.
+        // Compared with what was last set, since the text view adjusts the attributes it is given.
+        guard let storage = textView.textStorage, context.coordinator.content?.isEqual(to: content) != true else { return }
+        context.coordinator.content = content
         // Replacing the text moves the selection; that isn't the reader selecting anything.
         context.coordinator.isReplacingText = true
-        textView.string = text
+        storage.setAttributedString(content)
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
         context.coordinator.isReplacingText = false
         scrollView.needsLayout = true
     }
@@ -74,6 +81,7 @@ struct SelectableTextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var selection: Binding<String>
         var isReplacingText = false
+        var content: NSAttributedString?
 
         init(selection: Binding<String>) {
             self.selection = selection
