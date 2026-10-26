@@ -1,4 +1,5 @@
 import AppKit
+import NaturalLanguage
 
 /// Turns the macOS Dictionary's plain-text definition into laid-out rich text.
 /// The Dictionary gives the whole entry as one line; its structure shows only in markers such as
@@ -32,10 +33,12 @@ enum DefinitionFormatter {
         "abbreviation", "prefix", "suffix", "combining form", "symbol", "number", "contraction",
     ]
     private static let sectionNames = ["PHRASAL VERBS", "PHRASES", "DERIVATIVES", "USAGE", "ORIGIN", "NOTE", "SYNONYMS", "ANTONYMS"]
-    /// Words that can end a phrase, as in "run away with".
-    private static let particles: Set<String> = ["up", "down", "in", "out", "off", "on", "over", "away", "with", "to", "for",
-                                                 "it", "by", "at", "about", "after", "against", "along", "around", "into",
-                                                 "through", "across", "apart", "aside", "back", "forth", "upon", "past"]
+    /// Labels that come between a phrase and its definition, as in "run the show informal".
+    private static let labelWords = [
+        "informal", "archaic", "dated", "formal", "literary", "humorous", "derogatory", "offensive", "rare", "proverb",
+        "British", "North", "US", "mainly", "chiefly", "Australian", "Scottish", "Irish", "Canadian",
+        "Nautical", "Hunting", "Printing", "Baseball", "Cricket", "Sailing", "Bridge", "Chess", "Grammar", "not",
+    ]
     /// Parts of speech in Chinese dictionaries, written after a circled sense number.
     private static let chinesePartsOfSpeech = Set("名动形副量代介连助叹数拟")
 
@@ -79,10 +82,18 @@ enum DefinitionFormatter {
             let start = match.range.upperBound
             let end = index + 1 < sections.count ? sections[index + 1].range.location : text.length
             breaks.append((start, 0, .phrase))
-            for boundary in matches(#"(?<=[.?!])\s+(?=\S)"#, in: text, range: NSRange(location: start, length: end - start)) {
+            // A phrase starts in lowercase, so sense numbers, "•" and capitalized example sentences don't count,
+            // and "!" is left out because it ends exclamations inside examples.
+            for boundary in matches(#"(?<=[.?])\s+(?=\p{Ll})"#, in: text, range: NSRange(location: start, length: end - start)) {
                 let after = boundary.range.upperBound
-                let opening = text.substring(with: NSRange(location: after, length: min(60, end - after))).lowercased()
-                if opening.split(separator: " ").prefix(6).contains(where: { $0.hasPrefix(stem) }) {
+                if boundary.range.location >= 4,
+                   text.substring(with: NSRange(location: boundary.range.location - 4, length: 4)) == "etc." {
+                    continue
+                }
+                // The phrase uses the word within its first few words, before any example.
+                let opening = text.substring(with: NSRange(location: after, length: min(60, end - after)))
+                    .lowercased().prefix { $0 != ":" }
+                if opening.split(separator: " ").prefix(4).contains(where: { $0.hasPrefix(stem) }) {
                     breaks.append((after, 0, .phrase))
                 }
             }
@@ -154,20 +165,47 @@ enum DefinitionFormatter {
         return lines
     }
 
-    /// Where the phrase ends in "run away with 1 …", "come running be eager …" or "run across (run across someone) …".
-    /// The phrase ends before a bracket or sense number if one comes soon; otherwise after the last word
-    /// built on the headword and any particles following it.
+    /// Where the phrase ends and its definition starts, as in "run away with 1 …", "run the show informal …",
+    /// "come running be eager …" or "run across (run across someone) …".
+    /// The earliest of these ends it: a bracket, pronunciation, sense number or colon; a label such as "informal";
+    /// "!" (kept in the phrase); or, from the third word, a verb that starts the definition.
     private static func phraseNameLength(in text: String, stem: String) -> Int {
         let ns = text as NSString
-        if let marker = firstMatch(#"\s(?:\(|\[|1\s)"#, in: ns), marker.range.location <= 40 {
-            return marker.range.location
+        let window = NSRange(location: 0, length: min(ns.length, 60))
+        var end = ns.length
+
+        if let marker = matches(#"\s(?:\(|\[|\||1\s)|:"#, in: ns, range: window).first {
+            end = min(end, marker.range.location)
         }
-        let words = text.split(separator: " ", omittingEmptySubsequences: false).prefix(6)
-        guard var last = words.lastIndex(where: { $0.lowercased().hasPrefix(stem) }) else { return 0 }
-        while last + 1 < words.count, particles.contains(words[last + 1].lowercased()) {
-            last += 1
+        let labels = labelWords.joined(separator: "|")
+        if let label = matches("\\s(?:\(labels))\\b", in: ns, range: window).first {
+            end = min(end, label.range.location)
         }
-        return (words[...last].joined(separator: " ") as NSString).length
+        if let exclamation = matches("!", in: ns, range: window).first {
+            end = min(end, exclamation.range.upperBound)
+        }
+
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        var index = 0
+        var previous = ""
+        tagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lexicalClass,
+                             options: [.omitWhitespace, .omitPunctuation]) { tag, range in
+            let word = text[range].lowercased()
+            defer {
+                index += 1
+                previous = word
+            }
+            let location = NSRange(range, in: text).location
+            guard location < end, index < 10 else { return false }
+            // "take it or leave it" and "take it on oneself to do something" keep their own verbs.
+            if index >= 2, tag == .verb, !word.hasPrefix(stem), !["to", "or", "and"].contains(previous) {
+                end = location
+                return false
+            }
+            return true
+        }
+        return (ns.substring(to: end).trimmingCharacters(in: .whitespaces) as NSString).length
     }
 
     // MARK: - Laying out
