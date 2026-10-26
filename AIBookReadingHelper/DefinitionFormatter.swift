@@ -17,6 +17,8 @@ enum DefinitionFormatter {
         case subsense
         /// A section such as PHRASES or ORIGIN; the text is its name.
         case section
+        /// An entry in PHRASES or PHRASAL VERBS. Its first `nameLength` characters are the phrase itself.
+        case phrase(nameLength: Int)
     }
 
     struct Line: Equatable {
@@ -30,6 +32,10 @@ enum DefinitionFormatter {
         "abbreviation", "prefix", "suffix", "combining form", "symbol", "number", "contraction",
     ]
     private static let sectionNames = ["PHRASAL VERBS", "PHRASES", "DERIVATIVES", "USAGE", "ORIGIN", "NOTE", "SYNONYMS", "ANTONYMS"]
+    /// Words that can end a phrase, as in "run away with".
+    private static let particles: Set<String> = ["up", "down", "in", "out", "off", "on", "over", "away", "with", "to", "for",
+                                                 "it", "by", "at", "about", "after", "against", "along", "around", "into",
+                                                 "through", "across", "apart", "aside", "back", "forth", "upon", "past"]
     /// Parts of speech in Chinese dictionaries, written after a circled sense number.
     private static let chinesePartsOfSpeech = Set("名动形副量代介连助叹数拟")
 
@@ -41,13 +47,18 @@ enum DefinitionFormatter {
         var bodyStart = 0
 
         // "apple ap·ple | ˈap(ə)l | noun 1 …": the headword and pronunciation come first.
-        if let match = firstMatch(#"^(.{1,80}?) \| ([^|]{1,80}) \|\s*"#, in: text) {
-            lines.append(Line(kind: .headword(pronunciation: text.substring(with: match.range(at: 2))),
-                              text: text.substring(with: match.range(at: 1))))
+        // Chinese entries have no pronunciation in pipes; their " | " separates examples after the first sense.
+        if let match = firstMatch(#"^([^|①-⑳。]{1,80}?) \| ([^|]{1,80}) \|\s*"#, in: text) {
+            // "set 1 | set |": the number tells homographs apart and isn't part of the word.
+            let headword = text.substring(with: match.range(at: 1))
+                .replacingOccurrences(of: #"\s\d+$"#, with: "", options: .regularExpression)
+            lines.append(Line(kind: .headword(pronunciation: text.substring(with: match.range(at: 2))), text: headword))
             bodyStart = match.range.upperBound
         }
+        // The word as it appears in phrases, such as "run" in "run away with".
+        let stem = lines.first?.text.split(separator: " ").first.map { $0.lowercased() } ?? ""
 
-        enum Break { case partOfSpeech, section, subsense, number(Int), circled }
+        enum Break { case partOfSpeech, section, subsense, number(Int), circled, phrase }
         var breaks: [(location: Int, skip: Int, kind: Break)] = []
         let body = NSRange(location: bodyStart, length: text.length - bodyStart)
 
@@ -59,8 +70,22 @@ enum DefinitionFormatter {
         for match in matches("(?<=[.)\\]]\\s)(?:\(partOfSpeech))(?=\\s1\\s)", in: text, range: body) {
             breaks.append((match.range.location, 0, .partOfSpeech))
         }
-        for match in matches("(?<=\\s)(\(sectionNames.joined(separator: "|")))(?=\\s)", in: text, range: body) {
+        let sections = matches("(?<=\\s)(\(sectionNames.joined(separator: "|")))(?=\\s)", in: text, range: body)
+        for (index, match) in sections.enumerated() {
             breaks.append((match.range.location, match.range.length, .section))
+            // In PHRASES and PHRASAL VERBS, a phrase starts the section and each sentence that mentions the word.
+            let name = text.substring(with: match.range(at: 1))
+            guard name == "PHRASES" || name == "PHRASAL VERBS", !stem.isEmpty else { continue }
+            let start = match.range.upperBound
+            let end = index + 1 < sections.count ? sections[index + 1].range.location : text.length
+            breaks.append((start, 0, .phrase))
+            for boundary in matches(#"(?<=[.?!])\s+(?=\S)"#, in: text, range: NSRange(location: start, length: end - start)) {
+                let after = boundary.range.upperBound
+                let opening = text.substring(with: NSRange(location: after, length: min(60, end - after))).lowercased()
+                if opening.split(separator: " ").prefix(6).contains(where: { $0.hasPrefix(stem) }) {
+                    breaks.append((after, 0, .phrase))
+                }
+            }
         }
         for match in matches("\\s*•\\s*", in: text, range: body) {
             breaks.append((match.range.location, match.range.length, .subsense))
@@ -93,6 +118,9 @@ enum DefinitionFormatter {
                 kept.append((item.location, item.skip, .sense(number: number)))
             case .circled:
                 kept.append((item.location, 0, .sense(number: nil)))
+            case .phrase:
+                nextNumber = 1
+                kept.append((item.location, 0, .phrase(nameLength: 0)))
             }
         }
 
@@ -101,7 +129,11 @@ enum DefinitionFormatter {
             let piece = text.substring(with: NSRange(location: start, length: end - start))
                 .trimmingCharacters(in: .whitespaces)
             guard !piece.isEmpty else { return }
-            lines.append(Line(kind: kind, text: piece))
+            if case .phrase = kind {
+                lines.append(Line(kind: .phrase(nameLength: phraseNameLength(in: piece, stem: stem)), text: piece))
+            } else {
+                lines.append(Line(kind: kind, text: piece))
+            }
         }
 
         // Without a pronunciation, as in Chinese entries, the text before the first sense is the headword.
@@ -120,6 +152,22 @@ enum DefinitionFormatter {
         }
         appendText(kind, from: start, to: text.length)
         return lines
+    }
+
+    /// Where the phrase ends in "run away with 1 …", "come running be eager …" or "run across (run across someone) …".
+    /// The phrase ends before a bracket or sense number if one comes soon; otherwise after the last word
+    /// built on the headword and any particles following it.
+    private static func phraseNameLength(in text: String, stem: String) -> Int {
+        let ns = text as NSString
+        if let marker = firstMatch(#"\s(?:\(|\[|1\s)"#, in: ns), marker.range.location <= 40 {
+            return marker.range.location
+        }
+        let words = text.split(separator: " ", omittingEmptySubsequences: false).prefix(6)
+        guard var last = words.lastIndex(where: { $0.lowercased().hasPrefix(stem) }) else { return 0 }
+        while last + 1 < words.count, particles.contains(words[last + 1].lowercased()) {
+            last += 1
+        }
+        return (words[...last].joined(separator: " ") as NSString).length
     }
 
     // MARK: - Laying out
@@ -165,6 +213,11 @@ enum DefinitionFormatter {
                 paragraph.firstLineHeadIndent = fontSize * 1.5
                 paragraph.headIndent = fontSize * 2.5
                 paragraph.tabStops = [NSTextTab(textAlignment: .left, location: fontSize * 2.5)]
+            case .phrase(let nameLength):
+                lineText = body(line.text, font: regular)
+                let name = NSRange(location: 0, length: min(nameLength, lineText.length))
+                lineText.addAttributes([.font: bold, .foregroundColor: NSColor.labelColor], range: name)
+                paragraph.paragraphSpacingBefore = 6
             case .section:
                 lineText = NSMutableAttributedString(string: line.text,
                                                      attributes: [.font: NSFont.boldSystemFont(ofSize: fontSize * 0.8),
