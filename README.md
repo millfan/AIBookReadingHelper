@@ -22,6 +22,8 @@ The app is signed with a free Apple Development certificate (Personal Team `H95K
 
 Run `scripts/make-dmg.sh` from the project folder. It builds a Release copy and creates `dist/AIBookReadingHelper.dmg`. Open the DMG and drag **AIBookReadingHelper** onto **Applications**. The app is signed with the Personal Team, so it runs on Macs signed in to the same Apple ID.
 
+The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadingHelper/Assets.xcassets/AppIcon.appiconset`.
+
 ## Using it
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
