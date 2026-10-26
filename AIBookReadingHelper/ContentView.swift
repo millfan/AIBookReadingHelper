@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var selectedText = ""
     @State private var isAnalyzing = false
     @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
+    /// Turned off with the Camera button. The camera is also off while a file is open.
+    @AppStorage(SettingsKey.cameraEnabled) private var cameraEnabled = true
     /// How much of the window's width the left side takes, set by dragging the divider.
     @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
     /// The HTML or PDF file shown in place of the camera, if one has been opened.
@@ -44,6 +46,11 @@ struct ContentView: View {
                     isChoosingDocument = true
                 }
                 .keyboardShortcut("o", modifiers: .command)
+                Toggle(isOn: $cameraEnabled) {
+                    Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
+                }
+                .toggleStyle(.button)
+                .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
                 if documentURL != nil {
                     Button("Back to camera", systemImage: "camera") {
                         closeDocument()
@@ -80,8 +87,20 @@ struct ContentView: View {
                 documentErrorMessage = error.localizedDescription
             }
         }
-        .task { await camera.start() }
+        // Runs again whenever the camera is turned on or off, or a file is opened or closed.
+        .task(id: cameraShouldRun) {
+            if cameraShouldRun {
+                await camera.start()
+            } else {
+                camera.stop()
+            }
+        }
         .onDisappear { camera.stop() }
+    }
+
+    /// The camera runs only while it is turned on and no file is open.
+    private var cameraShouldRun: Bool {
+        cameraEnabled && documentURL == nil
     }
 
     /// An opened HTML or PDF file, the captured page once one has been taken, or else the live camera.
@@ -98,13 +117,17 @@ struct ContentView: View {
         } else {
             ZStack {
                 Color.black
-                switch camera.status {
-                case .idle, .running:
-                    CameraPreviewView(session: camera.session, rotated180: rotateCamera)
-                case .unauthorized:
-                    notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
-                case .unavailable:
-                    notice("No camera was found.")
+                if !cameraEnabled {
+                    notice("The camera is off. Click Camera to turn it on.")
+                } else {
+                    switch camera.status {
+                    case .idle, .running:
+                        CameraPreviewView(session: camera.session, rotated180: rotateCamera)
+                    case .unauthorized:
+                        notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
+                    case .unavailable:
+                        notice("No camera was found.")
+                    }
                 }
             }
         }
