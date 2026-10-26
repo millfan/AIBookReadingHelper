@@ -146,16 +146,22 @@ private struct TranslationResultView: View {
             ProgressView("Translating…")
                 .controlSize(.small)
         case .done(let translation):
-            ScrollView {
-                Text(translation)
-                    .font(.readingText)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            // The text isn't selectable, so clicking it leaves the page's selection alone. Copy covers copying it.
+            VStack(alignment: .leading, spacing: 8) {
+                ScrollView {
+                    Text(translation)
+                        .font(.readingText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button("Copy", systemImage: "doc.on.doc") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(translation, forType: .string)
+                }
+                .focusable(false)
             }
         case .failed(let message):
             Text(message)
                 .foregroundStyle(.red)
-                .textSelection(.enabled)
         }
     }
 }

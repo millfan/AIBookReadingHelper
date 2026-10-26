@@ -1,6 +1,6 @@
 # AIBookReadingHelper
 
-A macOS app for reading physical books in another language. Point the Mac's camera at a page, capture it, select a word, phrase or sentence on the photo, and see its translation on screen.
+A macOS app for reading physical books in another language. Point the Mac's camera at a page, capture it, select a word, phrase or sentence on the photo, and see its translation on screen. HTML and PDF files can be opened and translated the same way.
 
 ## Status
 
@@ -18,12 +18,21 @@ The app needs macOS 14 or later. Apple Translation needs macOS 15 or later.
 
 The app is signed with a free Apple Development certificate (Personal Team `H95KCGR5JM`). A stable signature lets macOS remember the camera permission across rebuilds. To build it under another Apple ID, choose your own team under **Signing & Capabilities**.
 
+## Installing it as an app
+
+Run `scripts/make-dmg.sh` from the project folder. It builds a Release copy and creates `dist/AIBookReadingHelper.dmg`. Open the DMG and drag **AIBookReadingHelper** onto **Applications**. The app is signed with the Personal Team, so it runs on Macs signed in to the same Apple ID.
+
+The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadingHelper/Assets.xcassets/AppIcon.appiconset`.
+
 ## Using it
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
-- The translation appears under the selection.
+- The translation appears under the selection. **Copy** puts it on the clipboard. The panel's text can't be selected, so clicking it never clears the selection on the page.
 - **Esc** or **Retake** goes back to the live camera.
+- Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
+- **Open File…** (Cmd+O) shows an HTML or PDF file in place of the camera. Select text in it to translate it, just like a captured page. **Back to camera** (Esc) closes it. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
+- **Camera** turns the camera on and off. The app remembers your choice. The camera also turns off by itself while an HTML or PDF file is open, and comes back on with **Back to camera** if it was on.
 - **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
 
 ## Translation

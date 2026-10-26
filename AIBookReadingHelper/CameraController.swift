@@ -53,6 +53,9 @@ final class CameraController: NSObject, ObservableObject {
     }
 
     func stop() {
+        if status == .running {
+            status = .idle
+        }
         let session = self.session
         sessionQueue.async {
             if session.isRunning {
