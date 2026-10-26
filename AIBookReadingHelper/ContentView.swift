@@ -221,10 +221,11 @@ private struct SelectionPanel: View {
                     Text("Drag across a word, phrase or sentence on the page to select it.")
                         .foregroundStyle(.secondary)
                 } else {
+                    // Not selectable: clicking selectable text here would take the focus from the page,
+                    // and the page would drop its selection.
                     ScrollView {
                         Text(selectedText)
                             .font(.readingText)
-                            .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }

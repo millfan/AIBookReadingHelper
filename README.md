@@ -28,7 +28,7 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
-- The translation appears under the selection.
+- The translation appears under the selection. **Copy** puts it on the clipboard. The panel's text can't be selected, so clicking it never clears the selection on the page.
 - **Esc** or **Retake** goes back to the live camera.
 - Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
 - **Open File…** (Cmd+O) shows an HTML or PDF file in place of the camera. Select text in it to translate it, just like a captured page. **Back to camera** (Esc) closes it. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
