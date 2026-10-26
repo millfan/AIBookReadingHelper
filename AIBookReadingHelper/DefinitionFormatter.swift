@@ -77,7 +77,7 @@ enum DefinitionFormatter {
         for match in matches("^(?:\(partOfSpeech))\\b", in: text, range: body) {
             breaks.append((match.range.location, 0, .partOfSpeech))
         }
-        for match in matches("(?<=[.)\\]]\\s)(?:\(partOfSpeech))(?=\\s(?:\\[[^\\]]*\\]\\s|\\([^)]*\\)\\s)*1\\s)", in: text, range: body) {
+        for match in matches("(?<=[.)\\]]\\s)(?:\(partOfSpeech))(?=\\s(?:(?:\\[[^\\]]*\\]\\s|\\([^)]*\\)\\s)*1\\s|\\[))", in: text, range: body) {
             breaks.append((match.range.location, 0, .partOfSpeech))
         }
         let sections = matches("(?<=\\s)(\(sectionNames.joined(separator: "|")))(?=\\s)", in: text, range: body)
@@ -195,6 +195,10 @@ enum DefinitionFormatter {
             end = min(end, exclamation.range.upperBound)
         }
 
+        // A pronunciation right after the phrase marks its end for certain: "what goes around comes around | (h)wət … |".
+        if let pronunciation = matches(#"\s\|"#, in: ns, range: window).first, pronunciation.range.location == end {
+            return (ns.substring(to: end).trimmingCharacters(in: .whitespaces) as NSString).length
+        }
         // A label is a surer sign than anything below: "you can't judge a book by its cover proverb …".
         guard label == nil else {
             return (ns.substring(to: end).trimmingCharacters(in: .whitespaces) as NSString).length
@@ -216,8 +220,8 @@ enum DefinitionFormatter {
             guard !word.hasPrefix(stem), !phraseWords.contains(word) || word == words[0].lowercased() else { continue }
             // "set sail hoist the sails": a word followed by "the", "someone" and so on;
             // "by the book strictly according to the rules": an adverb;
-            // "in my book in my opinion": the phrase's first word again.
-            if objectWords.contains(next) || (word.hasSuffix("ly") && word.count > 4) || word == words[0].lowercased() {
+            // "in my book in my opinion": the phrase's first word again, once the phrase has used the word.
+            if objectWords.contains(next) || (word.hasSuffix("ly") && word.count > 4) || (word == words[0].lowercased() && words[..<index].contains { $0.lowercased().hasPrefix(stem) }) {
                 end = min(end, length(before: index))
                 break
             }
