@@ -33,6 +33,7 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 - Clicking or selecting in the panel leaves the selection on the page as it is. Only a click on the page itself clears it.
 - **Esc** or **Retake** goes back to the live camera.
 - Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
+- Drag the line between the selected text and the translation to resize them. The selected text starts at a quarter of the panel's height.
 - **Open File…** (Cmd+O) shows an HTML or PDF file in place of the camera. Select text in it to translate it, just like a captured page. **Back to camera** (Esc) closes it. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
 - **Camera** turns the camera on and off. The app remembers your choice. The camera also turns off by itself while an HTML or PDF file is open, and comes back on with **Back to camera** if it was on.
 - **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
