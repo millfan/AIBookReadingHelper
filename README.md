@@ -28,6 +28,7 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 
 - **Space** or **Capture page** takes a photo of the page in front of the camera.
 - Drag across a word, phrase or sentence on the captured page to select it. The selection appears in the panel on the right.
+- You can also type or paste text into **Selected text / paste** at the top of the panel to translate it.
 - The translation appears under the selection. **Copy** puts it on the clipboard.
 - Select a word in the panel's copy of the selection to see its definition from the macOS Dictionary under the translation, laid out with its pronunciation, parts of speech, numbered senses and sections. A single word selected on the page is looked up too. Chinese words need a Chinese dictionary turned on in the Dictionary app's Settings.
 - Clicking or selecting in the panel leaves the selection on the page as it is. Only a click on the page itself clears it.
