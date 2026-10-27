@@ -15,29 +15,26 @@ private struct TranslationRequest: Equatable {
     let direction: TranslationDirection
 }
 
-extension Font {
-    /// The font for the selected text and its translation: twice the normal system size, so both are easy to read.
-    static let readingText = Font.system(size: NSFont.systemFontSize * 2)
-}
-
 /// How long to wait after the selection stops changing before translating, so dragging doesn't send a request per word.
 private let selectionSettleDelay = Duration.milliseconds(400)
 
-/// Translates the selected text with the engine chosen in the View menu.
+/// Translates the selected text with the engine chosen in the View menu, and shows a word's dictionary definition below it.
 struct TranslationView: View {
     let text: String
     let engine: TranslationEngine
     let direction: TranslationDirection
+    let dictionaryWord: String?
 
     var body: some View {
         switch engine {
         case .google:
-            GoogleTranslationView(text: text, direction: direction)
+            GoogleTranslationView(text: text, direction: direction, dictionaryWord: dictionaryWord)
         case .apple:
             if #available(macOS 15.0, *) {
-                AppleTranslationView(text: text, direction: direction)
+                AppleTranslationView(text: text, direction: direction, dictionaryWord: dictionaryWord)
             } else {
-                TranslationResultView(state: .failed("Apple Translation needs macOS 15 or later. Choose View > Google Translation instead."))
+                TranslationResultView(state: .failed("Apple Translation needs macOS 15 or later. Choose View > Google Translation instead."),
+                                      dictionaryWord: dictionaryWord)
             }
         }
     }
@@ -46,6 +43,7 @@ struct TranslationView: View {
 private struct GoogleTranslationView: View {
     let text: String
     let direction: TranslationDirection
+    let dictionaryWord: String?
     @AppStorage(SettingsKey.googleAPIKey) private var apiKey = ""
     @State private var state = TranslationState.idle
 
@@ -60,7 +58,7 @@ private struct GoogleTranslationView: View {
                     }
                 }
             } else {
-                TranslationResultView(state: state)
+                TranslationResultView(state: state, dictionaryWord: dictionaryWord)
             }
         }
         .task(id: [text, direction.rawValue, apiKey]) {
@@ -94,12 +92,13 @@ private struct GoogleTranslationView: View {
 private struct AppleTranslationView: View {
     let text: String
     let direction: TranslationDirection
+    let dictionaryWord: String?
     @State private var state = TranslationState.idle
     @State private var configuration: TranslationSession.Configuration?
     @State private var pendingText = ""
 
     var body: some View {
-        TranslationResultView(state: state)
+        TranslationResultView(state: state, dictionaryWord: dictionaryWord)
             .translationTask(configuration) { session in
                 let text = pendingText
                 do {
@@ -134,34 +133,63 @@ private struct AppleTranslationView: View {
     }
 }
 
+/// The translation, or how it is going, followed by the dictionary definition in one scrolling view.
 private struct TranslationResultView: View {
     let state: TranslationState
+    let dictionaryWord: String?
 
     var body: some View {
-        switch state {
-        case .idle:
-            Text("The translation of the selected text appears here.")
-                .foregroundStyle(.secondary)
-        case .translating:
-            ProgressView("Translating…")
-                .controlSize(.small)
-        case .done(let translation):
-            // The text isn't selectable, so clicking it leaves the page's selection alone. Copy covers copying it.
-            VStack(alignment: .leading, spacing: 8) {
-                ScrollView {
-                    Text(translation)
-                        .font(.readingText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                Button("Copy", systemImage: "doc.on.doc") {
+        VStack(alignment: .leading, spacing: 8) {
+            switch state {
+            case .idle:
+                Text("The translation of the selected text appears here.")
+                    .foregroundStyle(.secondary)
+            case .translating:
+                ProgressView("Translating…")
+                    .controlSize(.small)
+            case .done:
+                EmptyView()
+            case .failed(let message):
+                Text(message)
+                    .foregroundStyle(.red)
+            }
+            let content = combinedText
+            if content.length > 0 {
+                SelectableTextView(attributedText: content)
+            }
+            if case .done(let translation) = state {
+                Button("Copy translation", systemImage: "doc.on.doc") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(translation, forType: .string)
                 }
                 .focusable(false)
             }
-        case .failed(let message):
-            Text(message)
-                .foregroundStyle(.red)
         }
+    }
+
+    /// The translation in the reading size, then a heading and the definition of the word, if there is one.
+    private var combinedText: NSAttributedString {
+        let text = NSMutableAttributedString()
+        if case .done(let translation) = state {
+            text.append(NSAttributedString(string: translation,
+                                           attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize * 2),
+                                                        .foregroundColor: NSColor.labelColor]))
+        }
+        guard let dictionaryWord else { return text }
+
+        let heading = NSMutableParagraphStyle()
+        heading.paragraphSpacingBefore = text.length > 0 ? 18 : 0
+        heading.paragraphSpacing = 6
+        if text.length > 0 {
+            text.append(NSAttributedString(string: "\n"))
+        }
+        text.append(NSAttributedString(string: "DICTIONARY",
+                                       attributes: [.font: NSFont.boldSystemFont(ofSize: NSFont.systemFontSize * 0.9),
+                                                    .foregroundColor: NSColor.secondaryLabelColor,
+                                                    .kern: 1.0,
+                                                    .paragraphStyle: heading]))
+        text.append(NSAttributedString(string: "\n"))
+        text.append(WordDictionary.attributedDefinition(of: dictionaryWord, fontSize: NSFont.systemFontSize * 1.4))
+        return text
     }
 }

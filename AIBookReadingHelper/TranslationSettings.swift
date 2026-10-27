@@ -7,6 +7,7 @@ enum SettingsKey {
     static let googleAPIKey = "googleAPIKey"
     static let rotateCamera = "rotateCamera"
     static let leftPaneFraction = "leftPaneFraction"
+    static let selectedTextFraction = "selectedTextFraction"
     static let cameraEnabled = "cameraEnabled"
 }
 

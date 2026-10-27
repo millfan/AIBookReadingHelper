@@ -179,9 +179,12 @@ struct ContentView: View {
     }
 }
 
-/// The line between the left side and the side panel. Dragging it reports the pointer's position across the window.
+/// A line between two panes that can be dragged. It reports the pointer's position in `coordinateSpace`:
+/// across it for panes side by side, or down it for stacked panes.
 private struct PaneDivider: View {
     static let coordinateSpace = "panes"
+    var stacked = false
+    var coordinateSpace = Self.coordinateSpace
     let onDrag: (CGFloat) -> Void
 
     var body: some View {
@@ -189,14 +192,18 @@ private struct PaneDivider: View {
             // A wider invisible strip makes the one-point line easy to grab.
             .overlay {
                 Color.clear
-                    .frame(width: 9)
+                    .frame(width: stacked ? nil : 9, height: stacked ? 9 : nil)
                     .contentShape(Rectangle())
                     .onHover { inside in
-                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                        if inside {
+                            (stacked ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).push()
+                        } else {
+                            NSCursor.pop()
+                        }
                     }
                     .gesture(
-                        DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.coordinateSpace))
-                            .onChanged { onDrag($0.location.x) }
+                        DragGesture(minimumDistance: 0, coordinateSpace: .named(coordinateSpace))
+                            .onChanged { onDrag(stacked ? $0.location.y : $0.location.x) }
                     )
             }
     }
@@ -208,8 +215,46 @@ private struct SelectionPanel: View {
     let isAnalyzing: Bool
     @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
     @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
+    /// What is selected inside the panel's own copy of the selected text.
+    @State private var panelSelection = ""
+    /// How much of the panel's height the selected text takes, set by dragging the line under it.
+    @AppStorage(SettingsKey.selectedTextFraction) private var selectedTextFraction = 0.25
+    private static let coordinateSpace = "panel"
+
+    /// The word to look up: one selected in the panel, or else the page's selection when it is a single word.
+    private var dictionaryWord: String? {
+        WordDictionary.singleWord(in: panelSelection) ?? WordDictionary.singleWord(in: selectedText)
+    }
 
     var body: some View {
+        GeometryReader { geometry in
+            let height = geometry.size.height
+            VStack(spacing: 0) {
+                selectedTextSection
+                    .padding(.bottom, 8)
+                    .frame(height: clampedTopHeight(height * selectedTextFraction, in: height), alignment: .topLeading)
+                PaneDivider(stacked: true, coordinateSpace: Self.coordinateSpace) { location in
+                    guard height > 0 else { return }
+                    selectedTextFraction = clampedTopHeight(location, in: height) / height
+                }
+                translationSection
+                    .padding(.top, 8)
+                    .frame(maxHeight: .infinity, alignment: .topLeading)
+            }
+            .coordinateSpace(.named(Self.coordinateSpace))
+        }
+        .padding()
+        .onChange(of: selectedText) {
+            panelSelection = ""
+        }
+    }
+
+    /// Keeps both parts usable: at least 80 points for the selected text and 160 for the translation.
+    private func clampedTopHeight(_ height: CGFloat, in totalHeight: CGFloat) -> CGFloat {
+        min(max(height, 80), max(totalHeight - 160, 80))
+    }
+
+    private var selectedTextSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Selected text")
                 .font(.headline)
@@ -221,29 +266,29 @@ private struct SelectionPanel: View {
                     Text("Drag across a word, phrase or sentence on the page to select it.")
                         .foregroundStyle(.secondary)
                 } else {
-                    // Not selectable: clicking selectable text here would take the focus from the page,
-                    // and the page would drop its selection.
-                    ScrollView {
-                        Text(selectedText)
-                            .font(.readingText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    // Selecting a word here looks it up in the dictionary. The page keeps its own selection meanwhile.
+                    SelectableTextView(text: selectedText,
+                                       font: .systemFont(ofSize: NSFont.systemFontSize * 2),
+                                       selection: $panelSelection)
                 }
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
 
-            Divider()
-
+    private var translationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Translation")
                 .font(.headline)
             Text("\(direction.source.name) to \(direction.target.name) with \(engine.menuTitle) · change both in the View menu")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // The dictionary definition of a single word follows the translation in the same view.
             TranslationView(text: selectedText,
                             engine: engine,
-                            direction: direction)
+                            direction: direction,
+                            dictionaryWord: dictionaryWord)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding()
     }
 }
