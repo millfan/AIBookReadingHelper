@@ -15,6 +15,8 @@ struct ContentView: View {
     @State private var documentURL: URL?
     @State private var isChoosingDocument = false
     @State private var documentErrorMessage: String?
+    /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
+    @State private var isEditingSelection = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,7 +30,7 @@ struct ContentView: View {
                     PaneDivider { location in
                         leftFraction = clampedLeftWidth(location, in: geometry.size.width) / geometry.size.width
                     }
-                    SelectionPanel(selectedText: selectedText, isAnalyzing: isAnalyzing)
+                    SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
                         .frame(maxWidth: .infinity)
                 }
                 .coordinateSpace(.named(PaneDivider.coordinateSpace))
@@ -55,7 +57,7 @@ struct ContentView: View {
                     Button("Back to camera", systemImage: "camera") {
                         closeDocument()
                     }
-                    .keyboardShortcut(.escape, modifiers: [])
+                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.escape, modifiers: []))
                 } else if camera.capturedImage == nil {
                     // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
                     Toggle(isOn: $rotateCamera) {
@@ -66,14 +68,14 @@ struct ContentView: View {
                     Button("Capture page", systemImage: "camera") {
                         camera.capturePage(rotated180: rotateCamera)
                     }
-                    .keyboardShortcut(.space, modifiers: [])
+                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.space, modifiers: []))
                     .disabled(camera.status != .running)
                 } else {
                     Button("Retake", systemImage: "arrow.counterclockwise") {
                         selectedText = ""
                         camera.retake()
                     }
-                    .keyboardShortcut(.escape, modifiers: [])
+                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.escape, modifiers: []))
                 }
             }
             .padding()
@@ -211,8 +213,9 @@ private struct PaneDivider: View {
 
 /// The side panel that shows what is selected on the page and its translation.
 private struct SelectionPanel: View {
-    let selectedText: String
+    @Binding var selectedText: String
     let isAnalyzing: Bool
+    @Binding var isEditing: Bool
     @AppStorage(SettingsKey.engine) private var engine = TranslationEngine.apple
     @AppStorage(SettingsKey.direction) private var direction = TranslationDirection.englishToChinese
     /// What is selected inside the panel's own copy of the selected text.
@@ -256,20 +259,26 @@ private struct SelectionPanel: View {
 
     private var selectedTextSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Selected text")
+            Text("Selected text / paste")
                 .font(.headline)
             Group {
                 if isAnalyzing {
                     ProgressView("Finding text on the page…")
                         .controlSize(.small)
-                } else if selectedText.isEmpty {
-                    Text("Drag across a word, phrase or sentence on the page to select it.")
-                        .foregroundStyle(.secondary)
                 } else {
+                    // Text can also be typed or pasted here to translate it.
                     // Selecting a word here looks it up in the dictionary. The page keeps its own selection meanwhile.
-                    SelectableTextView(text: selectedText,
+                    SelectableTextView(editing: $selectedText,
                                        font: .systemFont(ofSize: NSFont.systemFontSize * 2),
-                                       selection: $panelSelection)
+                                       selection: $panelSelection,
+                                       isFocused: $isEditing)
+                        .overlay(alignment: .topLeading) {
+                            if selectedText.isEmpty {
+                                Text("Drag across a word, phrase or sentence on the page to select it, or paste text here.")
+                                    .foregroundStyle(.secondary)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                 }
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)

@@ -1,15 +1,28 @@
 import AppKit
 import SwiftUI
 
-/// Shows text that can be selected but not edited, and reports the part that is selected.
+/// Shows text that can be selected, and optionally edited, and reports the part that is selected.
 /// SwiftUI's selectable Text can't say what is selected, so this wraps an NSTextView.
 struct SelectableTextView: NSViewRepresentable {
     let content: NSAttributedString
     @Binding var selection: String
+    /// Set for editable text: what the reader types or pastes is written back here.
+    private var editedText: Binding<String>?
+    /// Set for editable text: whether the reader is typing in it.
+    private var isFocused: Binding<Bool>?
+    private var font: NSFont?
 
     init(text: String, font: NSFont, selection: Binding<String>) {
         content = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.labelColor])
         _selection = selection
+        self.font = font
+    }
+
+    /// Plain text the reader can also type into or paste into.
+    init(editing text: Binding<String>, font: NSFont, selection: Binding<String>, isFocused: Binding<Bool>) {
+        self.init(text: text.wrappedValue, font: font, selection: selection)
+        editedText = text
+        self.isFocused = isFocused
     }
 
     /// Rich text, such as a laid-out dictionary definition.
@@ -29,8 +42,17 @@ struct SelectableTextView: NSViewRepresentable {
         scrollView.autohidesScrollers = true
 
         let textView = scrollView.textView
-        textView.isEditable = false
+        textView.isEditable = editedText != nil
         textView.isSelectable = true
+        textView.allowsUndo = true
+        if let font {
+            // Typed and pasted text gets the same font; pasted text loses its own styling.
+            textView.font = font
+            textView.typingAttributes = [.font: font, .foregroundColor: NSColor.labelColor]
+        }
+        textView.onFocusChange = { [weak coordinator = context.coordinator] focused in
+            coordinator?.focusChanged(focused)
+        }
         textView.drawsBackground = false
         textView.isRichText = false
         textView.textContainerInset = .zero
@@ -47,10 +69,14 @@ struct SelectableTextView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: TextScrollView, context: Context) {
         context.coordinator.selection = $selection
+        context.coordinator.editedText = editedText
+        context.coordinator.isFocused = isFocused
         let textView = scrollView.textView
-        // Replacing the text on every update would disturb a selection being made.
-        // Compared with what was last set, since the text view adjusts the attributes it is given.
-        guard let storage = textView.textStorage, context.coordinator.content?.isEqual(to: content) != true else { return }
+        // Replacing the text on every update would disturb a selection being made, or typing.
+        // Compared with what was last set, since the text view adjusts the attributes it is given,
+        // and with what is showing, which already includes what the reader typed.
+        guard let storage = textView.textStorage, context.coordinator.content?.isEqual(to: content) != true,
+              textView.string != content.string || editedText == nil else { return }
         context.coordinator.content = content
         // Replacing the text moves the selection; that isn't the reader selecting anything.
         context.coordinator.isReplacingText = true
@@ -64,7 +90,7 @@ struct SelectableTextView: NSViewRepresentable {
     /// SwiftUI gives the view its size only after it is made, so a text view sized at creation would be zero by zero:
     /// the text would still draw, but clicks would miss it.
     final class TextScrollView: NSScrollView {
-        let textView = NSTextView()
+        let textView = FocusReportingTextView()
 
         override func layout() {
             super.layout()
@@ -77,14 +103,46 @@ struct SelectableTextView: NSViewRepresentable {
         }
     }
 
+    /// A text view that says when it gains or loses the keyboard focus.
+    final class FocusReportingTextView: NSTextView {
+        var onFocusChange: ((Bool) -> Void)?
+
+        override func becomeFirstResponder() -> Bool {
+            let became = super.becomeFirstResponder()
+            if became { onFocusChange?(true) }
+            return became
+        }
+
+        override func resignFirstResponder() -> Bool {
+            let resigned = super.resignFirstResponder()
+            if resigned { onFocusChange?(false) }
+            return resigned
+        }
+    }
+
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var selection: Binding<String>
+        var editedText: Binding<String>?
+        var isFocused: Binding<Bool>?
         var isReplacingText = false
         var content: NSAttributedString?
 
         init(selection: Binding<String>) {
             self.selection = selection
+        }
+
+        func focusChanged(_ focused: Bool) {
+            DispatchQueue.main.async { [isFocused] in
+                if isFocused?.wrappedValue != focused {
+                    isFocused?.wrappedValue = focused
+                }
+            }
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard !isReplacingText, let textView = notification.object as? NSTextView else { return }
+            editedText?.wrappedValue = textView.string
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
