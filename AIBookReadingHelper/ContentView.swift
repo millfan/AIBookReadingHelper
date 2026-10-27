@@ -17,6 +17,10 @@ struct ContentView: View {
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
     @State private var isEditingSelection = false
+    /// Whether the Internet view is showing in place of the camera.
+    @State private var isShowingWeb = false
+    /// Whether the reader is typing in the Internet view's address box.
+    @State private var isTypingAddress = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,16 +52,23 @@ struct ContentView: View {
                     isChoosingDocument = true
                 }
                 .keyboardShortcut("o", modifiers: .command)
+                if !isShowingWeb {
+                    Button("Internet", systemImage: "globe") {
+                        closeDocument()
+                        isShowingWeb = true
+                    }
+                    .keyboardShortcut("l", modifiers: .command)
+                }
                 Toggle(isOn: $cameraEnabled) {
                     Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
                 }
                 .toggleStyle(.button)
                 .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
-                if documentURL != nil {
+                if documentURL != nil || isShowingWeb {
                     Button("Back to camera", systemImage: "camera") {
                         closeDocument()
                     }
-                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.escape, modifiers: []))
+                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
                 } else if camera.capturedImage == nil {
                     // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
                     Toggle(isOn: $rotateCamera) {
@@ -68,14 +79,14 @@ struct ContentView: View {
                     Button("Capture page", systemImage: "camera") {
                         camera.capturePage(rotated180: rotateCamera)
                     }
-                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.space, modifiers: []))
+                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.space, modifiers: []))
                     .disabled(camera.status != .running)
                 } else {
                     Button("Retake", systemImage: "arrow.counterclockwise") {
                         selectedText = ""
                         camera.retake()
                     }
-                    .keyboardShortcut(isEditingSelection ? nil : KeyboardShortcut(.escape, modifiers: []))
+                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
                 }
             }
             .padding()
@@ -100,12 +111,17 @@ struct ContentView: View {
         .onDisappear { camera.stop() }
     }
 
-    /// The camera runs only while it is turned on and no file is open.
+    /// The camera runs only while it is turned on and no file or web page is showing.
     private var cameraShouldRun: Bool {
-        cameraEnabled && documentURL == nil
+        cameraEnabled && documentURL == nil && !isShowingWeb
     }
 
-    /// An opened HTML or PDF file, the captured page once one has been taken, or else the live camera.
+    /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
+    private var isTyping: Bool {
+        isEditingSelection || isTypingAddress
+    }
+
+    /// An opened HTML or PDF file, the Internet view, the captured page once one has been taken, or else the live camera.
     @ViewBuilder
     private var leftPane: some View {
         if let documentURL {
@@ -114,6 +130,8 @@ struct ContentView: View {
             } else {
                 HTMLDocumentView(url: documentURL, selectedText: $selectedText)
             }
+        } else if isShowingWeb {
+            WebBrowserView(selectedText: $selectedText, isTypingAddress: $isTypingAddress)
         } else if let image = camera.capturedImage {
             page(image)
         } else {
@@ -169,6 +187,7 @@ struct ContentView: View {
     private func closeDocument() {
         documentURL?.stopAccessingSecurityScopedResource()
         documentURL = nil
+        isShowingWeb = false
         documentErrorMessage = nil
         selectedText = ""
     }

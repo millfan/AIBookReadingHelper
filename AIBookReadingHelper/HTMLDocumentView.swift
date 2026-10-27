@@ -1,10 +1,12 @@
 import SwiftUI
 import WebKit
 
-/// Shows an HTML file and reports the text selected in it, so it can be translated like text on a captured page.
+/// Shows an HTML file or a web page and reports the text selected in it, so it can be translated like text on a captured page.
 struct HTMLDocumentView: NSViewRepresentable {
     let url: URL
     @Binding var selectedText: String
+    /// Called with the address of each page the view goes to, including by following links.
+    var onNavigate: ((URL) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(selectedText: $selectedText)
@@ -20,16 +22,22 @@ struct HTMLDocumentView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = contentController
         let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.navigationDelegate = context.coordinator
         context.coordinator.webView = webView
         return webView
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.selectedText = $selectedText
+        context.coordinator.onNavigate = onNavigate
         guard context.coordinator.loadedURL != url else { return }
         context.coordinator.loadedURL = url
-        // The sandbox only grants access to the chosen file, so images and styles next to it may not load.
-        webView.loadFileURL(url, allowingReadAccessTo: url)
+        if url.isFileURL {
+            // The sandbox only grants access to the chosen file, so images and styles next to it may not load.
+            webView.loadFileURL(url, allowingReadAccessTo: url)
+        } else {
+            webView.load(URLRequest(url: url))
+        }
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -37,7 +45,7 @@ struct HTMLDocumentView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         static let messageName = "selection"
         /// Sends the page's selection to the app every time it changes, and remembers it so it can be put back.
         static let selectionScript = """
@@ -61,6 +69,13 @@ struct HTMLDocumentView: NSViewRepresentable {
         var selectedText: Binding<String>
         var loadedURL: URL?
         weak var webView: WKWebView?
+        var onNavigate: ((URL) -> Void)?
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            if let url = webView.url {
+                onNavigate?(url)
+            }
+        }
 
         init(selectedText: Binding<String>) {
             self.selectedText = selectedText

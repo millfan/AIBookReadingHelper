@@ -8,6 +8,7 @@ enum SettingsKey {
     static let rotateCamera = "rotateCamera"
     static let leftPaneFraction = "leftPaneFraction"
     static let selectedTextFraction = "selectedTextFraction"
+    static let webAddress = "webAddress"
     static let cameraEnabled = "cameraEnabled"
 }
 
