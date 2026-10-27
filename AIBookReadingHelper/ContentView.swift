@@ -232,9 +232,12 @@ private struct SelectionPanel: View {
     var body: some View {
         GeometryReader { geometry in
             let height = geometry.size.height
-            VStack(spacing: 0) {
+            // Both parts fill the panel's width and keep their headings at the top left, whatever they show,
+            // so the Translation heading stays put when there is nothing to translate.
+            VStack(alignment: .leading, spacing: 0) {
                 selectedTextSection
                     .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                     .frame(height: clampedTopHeight(height * selectedTextFraction, in: height), alignment: .topLeading)
                 PaneDivider(stacked: true, coordinateSpace: Self.coordinateSpace) { location in
                     guard height > 0 else { return }
@@ -242,7 +245,7 @@ private struct SelectionPanel: View {
                 }
                 translationSection
                     .padding(.top, 8)
-                    .frame(maxHeight: .infinity, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .coordinateSpace(.named(Self.coordinateSpace))
         }
@@ -297,7 +300,7 @@ private struct SelectionPanel: View {
                             engine: engine,
                             direction: direction,
                             dictionaryWord: dictionaryWord)
-                .frame(maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
