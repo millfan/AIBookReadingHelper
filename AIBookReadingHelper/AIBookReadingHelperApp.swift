@@ -8,10 +8,37 @@ struct AIBookReadingHelperApp: App {
         }
         .commands {
             TranslationCommands()
+            ZoomCommands()
         }
 
         Settings {
             SettingsView()
+        }
+    }
+}
+
+/// Adds Zoom In, Zoom Out and Actual Size to the View menu, for the pages in the File and Internet views.
+private struct ZoomCommands: Commands {
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
+
+    var body: some Commands {
+        CommandGroup(before: .toolbar) {
+            Button("Zoom In") {
+                zoom = PageZoom.larger(than: zoom)
+            }
+            .keyboardShortcut("=", modifiers: .command)
+            .disabled(zoom >= PageZoom.range.upperBound)
+            Button("Zoom Out") {
+                zoom = PageZoom.smaller(than: zoom)
+            }
+            .keyboardShortcut("-", modifiers: .command)
+            .disabled(zoom <= PageZoom.range.lowerBound)
+            Button("Actual Size") {
+                zoom = PageZoom.normal
+            }
+            .keyboardShortcut("0", modifiers: .command)
+            .disabled(zoom == PageZoom.normal)
+            Divider()
         }
     }
 }

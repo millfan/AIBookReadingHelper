@@ -6,6 +6,8 @@ import SwiftUI
 struct PDFDocumentView: NSViewRepresentable {
     let url: URL
     @Binding var selectedText: String
+    /// How large to show the pages, compared with fitting the page to the view. 1 fits the page.
+    var zoom = PageZoom.normal
 
     func makeCoordinator() -> Coordinator {
         Coordinator(selectedText: $selectedText)
@@ -21,9 +23,26 @@ struct PDFDocumentView: NSViewRepresentable {
 
     func updateNSView(_ pdfView: PDFView, context: Context) {
         context.coordinator.selectedText = $selectedText
-        guard pdfView.document?.documentURL != url else { return }
-        context.coordinator.lastSelection = nil
-        pdfView.document = PDFDocument(url: url)
+        if pdfView.document?.documentURL != url {
+            context.coordinator.lastSelection = nil
+            pdfView.document = PDFDocument(url: url)
+        }
+        // Only when the zoom changes, so a pinch on the trackpad isn't undone by the next selection.
+        if context.coordinator.appliedZoom != zoom {
+            context.coordinator.appliedZoom = zoom
+            if zoom == PageZoom.normal {
+                // The page fits the view as the view changes size.
+                pdfView.autoScales = true
+            } else {
+                // Scaled from the size that fits the page, once the view has been laid out and has that size.
+                DispatchQueue.main.async {
+                    let fit = pdfView.scaleFactorForSizeToFit
+                    guard fit > 0 else { return }
+                    pdfView.autoScales = false
+                    pdfView.scaleFactor = fit * CGFloat(zoom)
+                }
+            }
+        }
     }
 
     static func dismantleNSView(_ pdfView: PDFView, coordinator: Coordinator) {
@@ -34,6 +53,8 @@ struct PDFDocumentView: NSViewRepresentable {
     final class Coordinator: NSObject {
         var selectedText: Binding<String>
         private var observer: NSObjectProtocol?
+        /// The zoom the pages were last shown at.
+        var appliedZoom: Double?
         /// The last non-empty selection, put back when the PDF loses its selection by losing the focus.
         var lastSelection: PDFSelection?
 

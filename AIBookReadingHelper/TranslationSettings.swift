@@ -9,8 +9,25 @@ enum SettingsKey {
     static let leftPaneFraction = "leftPaneFraction"
     static let selectedTextFraction = "selectedTextFraction"
     static let webAddress = "webAddress"
-    static let showOpenAI = "showOpenAI"
+    static let sidePanel = "sidePanel"
+    static let documentBookmark = "documentBookmark"
+    static let pageZoom = "pageZoom"
     static let cameraEnabled = "cameraEnabled"
+}
+
+/// How large the File and Internet views show their pages, changed with Cmd+ and Cmd−. 1 is the normal size.
+enum PageZoom {
+    static let normal = 1.0
+    static let step = 0.1
+    static let range = 0.5...3.0
+
+    static func larger(than zoom: Double) -> Double {
+        min(((zoom + step) * 10).rounded() / 10, range.upperBound)
+    }
+
+    static func smaller(than zoom: Double) -> Double {
+        max(((zoom - step) * 10).rounded() / 10, range.lowerBound)
+    }
 }
 
 /// The service that translates the selected text. Chosen from the View menu.
@@ -63,6 +80,39 @@ enum TranslationDirection: String, CaseIterable, Identifiable {
         switch self {
         case .englishToChinese: .chinese
         case .chineseToEnglish: .english
+        }
+    }
+}
+
+/// What the side panel shows. The side panel button steps through them.
+enum SidePanel: String {
+    /// The selected text, its translation and the dictionary.
+    case normal
+    case openAI
+    case googleTranslate
+
+    var title: String {
+        switch self {
+        case .normal: "Normal view"
+        case .openAI: "OpenAI view"
+        case .googleTranslate: "Google Translate"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .normal: "character.book.closed"
+        case .openAI: "bubble.left.and.bubble.right"
+        case .googleTranslate: "globe"
+        }
+    }
+
+    /// The panel the button goes to next.
+    var next: SidePanel {
+        switch self {
+        case .normal: .openAI
+        case .openAI: .googleTranslate
+        case .googleTranslate: .normal
         }
     }
 }

@@ -7,30 +7,38 @@ struct ContentView: View {
     @State private var selectedText = ""
     @State private var isAnalyzing = false
     @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
-    /// Turned off with the Camera button. The camera is also off while a file is open.
+    /// Turned off with the Camera button. The camera is also off while the Internet or File view is showing.
     @AppStorage(SettingsKey.cameraEnabled) private var cameraEnabled = true
     /// How much of the window's width the left side takes, set by dragging the divider.
     @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
-    /// The HTML or PDF file shown in place of the camera, if one has been opened.
+    /// Which view the left side shows: the camera, a web page or an opened file.
+    @State private var leftView = LeftView.camera
+    /// The HTML or PDF file shown in the File view, if one has been opened. It stays open while another view is showing.
     @State private var documentURL: URL?
+    /// Where the last opened file is, kept so the File view shows it again after the app is reopened.
+    @AppStorage(SettingsKey.documentBookmark) private var documentBookmark = Data()
+    /// How large the File view shows its page, changed with Cmd+ and Cmd− from the View menu.
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
     @State private var isChoosingDocument = false
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
     @State private var isEditingSelection = false
-    /// Whether the Internet view is showing in place of the camera.
-    @State private var isShowingWeb = false
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
-    /// Whether the side panel shows ChatGPT instead of the selected text and translation.
-    @AppStorage(SettingsKey.showOpenAI) private var showOpenAI = false
-    /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while the normal panel is showing.
+    /// Whether the side panel shows the selected text and translation, ChatGPT or Google Translate.
+    @AppStorage(SettingsKey.sidePanel) private var sidePanel = SidePanel.normal
+    /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while another panel is showing.
     @State private var hasShownOpenAI = false
+    /// Set once Google Translate has been shown, so it stays loaded while another panel is showing.
+    @State private var hasShownGoogleTranslate = false
     /// Whether the reader is typing in ChatGPT.
     @State private var isTypingInOpenAI = false
+    /// Whether the reader is typing in Google Translate.
+    @State private var isTypingInGoogleTranslate = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // The side panel stays put while the left side switches between the camera, a captured page and an opened file.
+            // The side panel stays put while the left side switches between the camera, a web page and an opened file.
             // The left side starts at 75% of the window's width; dragging the divider changes that.
             GeometryReader { geometry in
                 let leftWidth = clampedLeftWidth(geometry.size.width * leftFraction, in: geometry.size.width)
@@ -40,7 +48,7 @@ struct ContentView: View {
                     PaneDivider { location in
                         leftFraction = clampedLeftWidth(location, in: geometry.size.width) / geometry.size.width
                     }
-                    sidePanel
+                    sidePanelView
                         .frame(maxWidth: .infinity)
                 }
                 .coordinateSpace(.named(PaneDivider.coordinateSpace))
@@ -54,51 +62,41 @@ struct ContentView: View {
                         .foregroundStyle(.red)
                 }
                 Spacer()
-                Button("Open File…", systemImage: "doc.richtext") {
-                    isChoosingDocument = true
+                // One button steps through the views: Camera, then Internet, then File. It has a fixed width, and the
+                // view's own buttons sit in a space as wide as the widest set, so it doesn't move when switching views.
+                Button {
+                    switchLeftView(to: leftView.next)
+                } label: {
+                    Label(leftView.title, systemImage: leftView.systemImage)
+                        .frame(width: 120)
                 }
-                .keyboardShortcut("o", modifiers: .command)
-                Toggle(isOn: $showOpenAI) {
-                    Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
+                .help("Switch to the \(leftView.next.title)")
+                ZStack(alignment: .leading) {
+                    widestViewControls
+                        .hidden()
+                        .disabled(true)
+                    HStack {
+                        switch leftView {
+                        case .camera:
+                            cameraControls
+                        case .internet:
+                            EmptyView()
+                        case .file:
+                            Button("Open File…", systemImage: "doc.richtext") {
+                                isChoosingDocument = true
+                            }
+                            .keyboardShortcut("o", modifiers: .command)
+                        }
+                    }
                 }
-                .toggleStyle(.button)
-                .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
-                if !isShowingWeb {
-                    Button("Internet", systemImage: "globe") {
-                        closeDocument()
-                        isShowingWeb = true
-                    }
-                    .keyboardShortcut("l", modifiers: .command)
+                // Steps the side panel through the selected text and translation, ChatGPT and Google Translate.
+                Button {
+                    sidePanel = sidePanel.next
+                } label: {
+                    Label(sidePanel.title, systemImage: sidePanel.systemImage)
+                        .frame(width: 130)
                 }
-                Toggle(isOn: $cameraEnabled) {
-                    Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
-                }
-                .toggleStyle(.button)
-                .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
-                if documentURL != nil || isShowingWeb {
-                    Button("Back to camera", systemImage: "camera") {
-                        closeDocument()
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
-                } else if camera.capturedImage == nil {
-                    // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
-                    Toggle(isOn: $rotateCamera) {
-                        Label("Rotate 180°", systemImage: "rotate.right")
-                    }
-                    .toggleStyle(.button)
-                    .disabled(camera.status != .running)
-                    Button("Capture page", systemImage: "camera") {
-                        camera.capturePage(rotated180: rotateCamera)
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.space, modifiers: []))
-                    .disabled(camera.status != .running)
-                } else {
-                    Button("Retake", systemImage: "arrow.counterclockwise") {
-                        selectedText = ""
-                        camera.retake()
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
-                }
+                .help("Switch the side panel to \(sidePanel.next.title)")
             }
             .padding()
         }
@@ -111,7 +109,7 @@ struct ContentView: View {
                 documentErrorMessage = error.localizedDescription
             }
         }
-        // Runs again whenever the camera is turned on or off, or a file is opened or closed.
+        // Runs again whenever the camera is turned on or off, or another view is chosen.
         .task(id: cameraShouldRun) {
             if cameraShouldRun {
                 await camera.start()
@@ -119,51 +117,118 @@ struct ContentView: View {
                 camera.stop()
             }
         }
+        .onAppear(perform: reopenLastDocument)
         .onDisappear { camera.stop() }
     }
 
-    /// The camera runs only while it is turned on and no file or web page is showing.
+    /// The camera runs only while it is turned on and the Camera view is showing.
     private var cameraShouldRun: Bool {
-        cameraEnabled && documentURL == nil && !isShowingWeb
+        cameraEnabled && leftView == .camera
+    }
+
+    /// Stands in for the widest set of a view's buttons, the Camera view's, to keep their space the same width.
+    private var widestViewControls: some View {
+        HStack {
+            Toggle("Camera", systemImage: "video", isOn: .constant(true))
+                .toggleStyle(.button)
+            Toggle("Rotate 180°", systemImage: "rotate.right", isOn: .constant(false))
+                .toggleStyle(.button)
+            Button("Capture page", systemImage: "camera") {}
+        }
+    }
+
+    /// The Camera view's buttons: the camera on and off, then rotating and capturing, or retaking a captured page.
+    @ViewBuilder
+    private var cameraControls: some View {
+        Toggle(isOn: $cameraEnabled) {
+            Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
+        }
+        .toggleStyle(.button)
+        .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
+        if camera.capturedImage == nil {
+            // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
+            Toggle(isOn: $rotateCamera) {
+                Label("Rotate 180°", systemImage: "rotate.right")
+            }
+            .toggleStyle(.button)
+            .disabled(camera.status != .running)
+            Button("Capture page", systemImage: "camera") {
+                camera.capturePage(rotated180: rotateCamera)
+            }
+            .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.space, modifiers: []))
+            .disabled(camera.status != .running)
+        } else {
+            Button("Retake", systemImage: "arrow.counterclockwise") {
+                selectedText = ""
+                camera.retake()
+            }
+            .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
+        }
     }
 
     /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
     private var isTyping: Bool {
-        isEditingSelection || isTypingAddress || (showOpenAI && isTypingInOpenAI)
+        isEditingSelection || isTypingAddress
+            || (sidePanel == .openAI && isTypingInOpenAI)
+            || (sidePanel == .googleTranslate && isTypingInGoogleTranslate)
     }
 
-    /// The selected text and translation, or ChatGPT. ChatGPT is kept loaded once shown, just hidden,
-    /// so switching back to it doesn't reload the page or lose a conversation.
-    private var sidePanel: some View {
+    /// The selected text and translation, ChatGPT or Google Translate. ChatGPT and Google Translate are kept loaded once
+    /// shown, just hidden, so switching back to them doesn't reload the page or lose a conversation.
+    private var sidePanelView: some View {
         ZStack {
             SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
-                .opacity(showOpenAI ? 0 : 1)
-                .allowsHitTesting(!showOpenAI)
-            if showOpenAI || hasShownOpenAI {
-                OpenAIView(selectedText: selectedText, isShowing: showOpenAI, isTyping: $isTypingInOpenAI)
-                    .opacity(showOpenAI ? 1 : 0)
-                    .allowsHitTesting(showOpenAI)
+                .opacity(sidePanel == .normal ? 1 : 0)
+                .allowsHitTesting(sidePanel == .normal)
+            if sidePanel == .openAI || hasShownOpenAI {
+                OpenAIView(selectedText: selectedText, isShowing: sidePanel == .openAI, isTyping: $isTypingInOpenAI)
+                    .opacity(sidePanel == .openAI ? 1 : 0)
+                    .allowsHitTesting(sidePanel == .openAI)
+            }
+            if sidePanel == .googleTranslate || hasShownGoogleTranslate {
+                GoogleTranslateView(selectedText: selectedText, isShowing: sidePanel == .googleTranslate,
+                                    isTyping: $isTypingInGoogleTranslate)
+                    .opacity(sidePanel == .googleTranslate ? 1 : 0)
+                    .allowsHitTesting(sidePanel == .googleTranslate)
             }
         }
-        .onChange(of: showOpenAI, initial: true) {
-            if showOpenAI {
-                hasShownOpenAI = true
+        .onChange(of: sidePanel, initial: true) {
+            switch sidePanel {
+            case .openAI: hasShownOpenAI = true
+            case .googleTranslate: hasShownGoogleTranslate = true
+            case .normal: break
             }
         }
     }
 
-    /// An opened HTML or PDF file, the Internet view, the captured page once one has been taken, or else the live camera.
+    /// The opened HTML or PDF file, a web page, or the camera: the captured page once one has been taken, or else the
+    /// live camera.
     @ViewBuilder
     private var leftPane: some View {
-        if let documentURL {
-            if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
-                PDFDocumentView(url: documentURL, selectedText: $selectedText)
+        switch leftView {
+        case .file:
+            if let documentURL {
+                if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
+                    PDFDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
+                } else {
+                    HTMLDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
+                }
             } else {
-                HTMLDocumentView(url: documentURL, selectedText: $selectedText)
+                ZStack {
+                    Color.black
+                    notice("Click Open File to open an HTML or PDF file.")
+                }
             }
-        } else if isShowingWeb {
+        case .internet:
             WebBrowserView(selectedText: $selectedText, isTypingAddress: $isTypingAddress)
-        } else if let image = camera.capturedImage {
+        case .camera:
+            cameraPane
+        }
+    }
+
+    @ViewBuilder
+    private var cameraPane: some View {
+        if let image = camera.capturedImage {
             page(image)
         } else {
             ZStack {
@@ -211,19 +276,41 @@ struct ContentView: View {
     }
 
     private func openDocument(_ url: URL) {
-        closeDocument()
+        documentURL?.stopAccessingSecurityScopedResource()
+        documentURL = nil
+        documentErrorMessage = nil
+        selectedText = ""
         // The file picker grants sandboxed access to the file only while it is being accessed.
         guard url.startAccessingSecurityScopedResource() else {
             documentErrorMessage = "The app wasn't allowed to open \(url.lastPathComponent)."
             return
         }
         documentURL = url
+        documentBookmark = (try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil,
+                                                  relativeTo: nil)) ?? Data()
     }
 
-    private func closeDocument() {
-        documentURL?.stopAccessingSecurityScopedResource()
-        documentURL = nil
-        isShowingWeb = false
+    /// Opens the file that was open when the app was last used, if it is still there.
+    private func reopenLastDocument() {
+        guard documentURL == nil, !documentBookmark.isEmpty else { return }
+        var isStale = false
+        guard let url = try? URL(resolvingBookmarkData: documentBookmark, options: .withSecurityScope,
+                                 relativeTo: nil, bookmarkDataIsStale: &isStale),
+              url.startAccessingSecurityScopedResource() else {
+            // The file was moved away or deleted.
+            documentBookmark = Data()
+            return
+        }
+        documentURL = url
+        // The file was moved or renamed, so the bookmark is saved again to keep finding it.
+        if isStale, let bookmark = try? url.bookmarkData(options: .withSecurityScope,
+                                                          includingResourceValuesForKeys: nil, relativeTo: nil) {
+            documentBookmark = bookmark
+        }
+    }
+
+    private func switchLeftView(to view: LeftView) {
+        leftView = view
         documentErrorMessage = nil
         selectedText = ""
     }
@@ -356,6 +443,38 @@ private struct SelectionPanel: View {
                             direction: direction,
                             dictionaryWord: dictionaryWord)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+/// The views the left side switches between.
+enum LeftView {
+    case camera
+    case internet
+    case file
+
+    var title: String {
+        switch self {
+        case .camera: "Camera view"
+        case .internet: "Internet view"
+        case .file: "File view"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .camera: "camera"
+        case .internet: "globe"
+        case .file: "doc.richtext"
+        }
+    }
+
+    /// The view the switch button goes to next.
+    var next: LeftView {
+        switch self {
+        case .camera: .internet
+        case .internet: .file
+        case .file: .camera
         }
     }
 }

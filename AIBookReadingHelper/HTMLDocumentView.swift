@@ -5,6 +5,8 @@ import WebKit
 struct HTMLDocumentView: NSViewRepresentable {
     let url: URL
     @Binding var selectedText: String
+    /// How large to show the page. 1 is the normal size.
+    var zoom = PageZoom.normal
     /// Called with the address of each page the view goes to, including by following links.
     var onNavigate: ((URL) -> Void)? = nil
 
@@ -30,6 +32,9 @@ struct HTMLDocumentView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.selectedText = $selectedText
         context.coordinator.onNavigate = onNavigate
+        if webView.pageZoom != CGFloat(zoom) {
+            webView.pageZoom = CGFloat(zoom)
+        }
         guard context.coordinator.loadedURL != url else { return }
         context.coordinator.loadedURL = url
         if url.isFileURL {
