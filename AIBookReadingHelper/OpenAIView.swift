@@ -59,7 +59,7 @@ private struct OpenAIWebView: NSViewRepresentable {
         configuration.websiteDataStore = .default()
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
         // Sign-in pages, such as Google's, refuse browsers they don't recognize, so this one presents itself as Safari.
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+        webView.customUserAgent = FocusReportingWebView.safariUserAgent
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
         webView.load(URLRequest(url: OpenAIView.address))
@@ -68,13 +68,7 @@ private struct OpenAIWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: FocusReportingWebView, context: Context) {
         let coordinator = context.coordinator
-        webView.onFocusChange = { [isTyping = $isTyping] focused in
-            DispatchQueue.main.async {
-                if isTyping.wrappedValue != focused {
-                    isTyping.wrappedValue = focused
-                }
-            }
-        }
+        webView.reportFocus(to: $isTyping)
         if reloadCount != coordinator.reloadCount {
             coordinator.reloadCount = reloadCount
             webView.load(URLRequest(url: OpenAIView.address))
@@ -82,22 +76,6 @@ private struct OpenAIWebView: NSViewRepresentable {
         if textToInsert != coordinator.insertedText {
             coordinator.insertedText = textToInsert
             coordinator.insert(textToInsert, into: webView)
-        }
-    }
-
-    final class FocusReportingWebView: WKWebView {
-        var onFocusChange: ((Bool) -> Void)?
-
-        override func becomeFirstResponder() -> Bool {
-            let became = super.becomeFirstResponder()
-            if became { onFocusChange?(true) }
-            return became
-        }
-
-        override func resignFirstResponder() -> Bool {
-            let resigned = super.resignFirstResponder()
-            if resigned { onFocusChange?(false) }
-            return resigned
         }
     }
 

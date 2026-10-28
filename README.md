@@ -39,7 +39,9 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 - In the **Camera view**, **Camera** turns the camera on and off. The app remembers your choice. The camera also turns off by itself while the Internet or File view is showing, and comes back on when you return to the Camera view if it was on.
 - The **Internet view** shows a web page. Type or paste an address into the box at the top and press Return; anything that isn't an address is searched on Google. Select text on the page to translate it. The app opens the last page again next time.
 - In the **File view**, **Open File…** (Cmd+O) opens an HTML or PDF file. Select text in it to translate it, just like a captured page. The file stays open while you visit the other views. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
-- **OpenAI view** swaps the side panel for ChatGPT. Sign in with your own account the first time; the app keeps you signed in. Whatever you select on the page, or paste, is put into ChatGPT's question box, ready for you to add a question and send. Click **OpenAI view** again to go back to the selected text and translation.
+- The side panel button, at the far right, switches the side panel between three views: **Normal view** (the selected text, its translation and the dictionary), then **OpenAI view**, then **Google Translate**, and back. It shows the view you're in.
+- **OpenAI view** shows ChatGPT. Sign in with your own account the first time; the app keeps you signed in. Whatever you select on the page, or paste, is put into ChatGPT's question box, ready for you to add a question and send.
+- **Google Translate** shows translate.google.com. Whatever you select on the page is put into its input box and translated, in the direction chosen in the View menu.
 - **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
 
 ## Translation

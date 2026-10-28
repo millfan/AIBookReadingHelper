@@ -21,12 +21,16 @@ struct ContentView: View {
     @State private var isEditingSelection = false
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
-    /// Whether the side panel shows ChatGPT instead of the selected text and translation.
-    @AppStorage(SettingsKey.showOpenAI) private var showOpenAI = false
-    /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while the normal panel is showing.
+    /// Whether the side panel shows the selected text and translation, ChatGPT or Google Translate.
+    @AppStorage(SettingsKey.sidePanel) private var sidePanel = SidePanel.normal
+    /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while another panel is showing.
     @State private var hasShownOpenAI = false
+    /// Set once Google Translate has been shown, so it stays loaded while another panel is showing.
+    @State private var hasShownGoogleTranslate = false
     /// Whether the reader is typing in ChatGPT.
     @State private var isTypingInOpenAI = false
+    /// Whether the reader is typing in Google Translate.
+    @State private var isTypingInGoogleTranslate = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,7 +44,7 @@ struct ContentView: View {
                     PaneDivider { location in
                         leftFraction = clampedLeftWidth(location, in: geometry.size.width) / geometry.size.width
                     }
-                    sidePanel
+                    sidePanelView
                         .frame(maxWidth: .infinity)
                 }
                 .coordinateSpace(.named(PaneDivider.coordinateSpace))
@@ -81,11 +85,14 @@ struct ContentView: View {
                         }
                     }
                 }
-                Toggle(isOn: $showOpenAI) {
-                    Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
+                // Steps the side panel through the selected text and translation, ChatGPT and Google Translate.
+                Button {
+                    sidePanel = sidePanel.next
+                } label: {
+                    Label(sidePanel.title, systemImage: sidePanel.systemImage)
+                        .frame(width: 130)
                 }
-                .toggleStyle(.button)
-                .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
+                .help("Switch the side panel to \(sidePanel.next.title)")
             }
             .padding()
         }
@@ -156,25 +163,35 @@ struct ContentView: View {
 
     /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
     private var isTyping: Bool {
-        isEditingSelection || isTypingAddress || (showOpenAI && isTypingInOpenAI)
+        isEditingSelection || isTypingAddress
+            || (sidePanel == .openAI && isTypingInOpenAI)
+            || (sidePanel == .googleTranslate && isTypingInGoogleTranslate)
     }
 
-    /// The selected text and translation, or ChatGPT. ChatGPT is kept loaded once shown, just hidden,
-    /// so switching back to it doesn't reload the page or lose a conversation.
-    private var sidePanel: some View {
+    /// The selected text and translation, ChatGPT or Google Translate. ChatGPT and Google Translate are kept loaded once
+    /// shown, just hidden, so switching back to them doesn't reload the page or lose a conversation.
+    private var sidePanelView: some View {
         ZStack {
             SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
-                .opacity(showOpenAI ? 0 : 1)
-                .allowsHitTesting(!showOpenAI)
-            if showOpenAI || hasShownOpenAI {
-                OpenAIView(selectedText: selectedText, isShowing: showOpenAI, isTyping: $isTypingInOpenAI)
-                    .opacity(showOpenAI ? 1 : 0)
-                    .allowsHitTesting(showOpenAI)
+                .opacity(sidePanel == .normal ? 1 : 0)
+                .allowsHitTesting(sidePanel == .normal)
+            if sidePanel == .openAI || hasShownOpenAI {
+                OpenAIView(selectedText: selectedText, isShowing: sidePanel == .openAI, isTyping: $isTypingInOpenAI)
+                    .opacity(sidePanel == .openAI ? 1 : 0)
+                    .allowsHitTesting(sidePanel == .openAI)
+            }
+            if sidePanel == .googleTranslate || hasShownGoogleTranslate {
+                GoogleTranslateView(selectedText: selectedText, isShowing: sidePanel == .googleTranslate,
+                                    isTyping: $isTypingInGoogleTranslate)
+                    .opacity(sidePanel == .googleTranslate ? 1 : 0)
+                    .allowsHitTesting(sidePanel == .googleTranslate)
             }
         }
-        .onChange(of: showOpenAI, initial: true) {
-            if showOpenAI {
-                hasShownOpenAI = true
+        .onChange(of: sidePanel, initial: true) {
+            switch sidePanel {
+            case .openAI: hasShownOpenAI = true
+            case .googleTranslate: hasShownGoogleTranslate = true
+            case .normal: break
             }
         }
     }

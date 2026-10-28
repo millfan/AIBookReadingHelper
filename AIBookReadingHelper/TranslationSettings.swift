@@ -9,7 +9,7 @@ enum SettingsKey {
     static let leftPaneFraction = "leftPaneFraction"
     static let selectedTextFraction = "selectedTextFraction"
     static let webAddress = "webAddress"
-    static let showOpenAI = "showOpenAI"
+    static let sidePanel = "sidePanel"
     static let cameraEnabled = "cameraEnabled"
 }
 
@@ -63,6 +63,39 @@ enum TranslationDirection: String, CaseIterable, Identifiable {
         switch self {
         case .englishToChinese: .chinese
         case .chineseToEnglish: .english
+        }
+    }
+}
+
+/// What the side panel shows. The side panel button steps through them.
+enum SidePanel: String {
+    /// The selected text, its translation and the dictionary.
+    case normal
+    case openAI
+    case googleTranslate
+
+    var title: String {
+        switch self {
+        case .normal: "Normal view"
+        case .openAI: "OpenAI view"
+        case .googleTranslate: "Google Translate"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .normal: "character.book.closed"
+        case .openAI: "bubble.left.and.bubble.right"
+        case .googleTranslate: "globe"
+        }
+    }
+
+    /// The panel the button goes to next.
+    var next: SidePanel {
+        switch self {
+        case .normal: .openAI
+        case .openAI: .googleTranslate
+        case .googleTranslate: .normal
         }
     }
 }
