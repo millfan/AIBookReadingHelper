@@ -7,16 +7,6 @@ import WebKit
 struct OpenAIView: View {
     static let address = URL(string: "https://chatgpt.com/")!
 
-    /// Opens ChatGPT in the reader's default web browser with the text as the question. Google doesn't allow
-    /// signing in inside an app's web view, so a reader who signs in with Google uses ChatGPT there instead.
-    static func askInBrowser(_ text: String) {
-        var components = URLComponents(url: address, resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "q", value: text)]
-        if let url = components?.url {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
     let selectedText: String
     /// Whether the view is showing. The selection is only put into the question box while it is.
     let isShowing: Bool

@@ -63,11 +63,6 @@ struct ContentView: View {
                 }
                 .toggleStyle(.button)
                 .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
-                Button("Ask ChatGPT", systemImage: "arrow.up.forward.app") {
-                    OpenAIView.askInBrowser(selectedText)
-                }
-                .help("Open ChatGPT in your web browser, where you are signed in, with the selected text")
-                .disabled(selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 if !isShowingWeb {
                     Button("Internet", systemImage: "globe") {
                         closeDocument()
