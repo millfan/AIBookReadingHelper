@@ -140,7 +140,7 @@ struct ContentView: View {
                 .opacity(showOpenAI ? 0 : 1)
                 .allowsHitTesting(!showOpenAI)
             if showOpenAI || hasShownOpenAI {
-                OpenAIView(selectedText: selectedText, isTyping: $isTypingInOpenAI)
+                OpenAIView(selectedText: selectedText, isShowing: showOpenAI, isTyping: $isTypingInOpenAI)
                     .opacity(showOpenAI ? 1 : 0)
                     .allowsHitTesting(showOpenAI)
             }

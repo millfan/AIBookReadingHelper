@@ -8,6 +8,8 @@ struct OpenAIView: View {
     static let address = URL(string: "https://chatgpt.com/")!
 
     let selectedText: String
+    /// Whether the view is showing. The selection is only put into the question box while it is.
+    let isShowing: Bool
     /// Whether the reader is typing in the page, where Space and Esc must type rather than act as shortcuts.
     @Binding var isTyping: Bool
     /// The selection to put in the question box, once it has stopped changing.
@@ -33,7 +35,8 @@ struct OpenAIView: View {
             OpenAIWebView(textToInsert: textToInsert, reloadCount: reloadCount, isTyping: $isTyping)
         }
         // Waits for the selection to settle, so dragging across the page doesn't rewrite the question per word.
-        .task(id: selectedText) {
+        .task(id: [selectedText, String(isShowing)]) {
+            guard isShowing else { return }
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             textToInsert = selectedText
