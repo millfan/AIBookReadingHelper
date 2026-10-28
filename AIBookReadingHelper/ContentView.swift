@@ -49,8 +49,13 @@ struct ContentView: View {
             Divider()
 
             HStack {
-                // One button steps through the views: Camera, then Internet, then File. It stays at the left edge with a
-                // fixed width, so it doesn't move as the view's own buttons change.
+                if let errorMessage = documentErrorMessage ?? camera.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
+                Spacer()
+                // One button steps through the views: Camera, then Internet, then File. It has a fixed width, and the
+                // view's own buttons sit in a space as wide as the widest set, so it doesn't move when switching views.
                 Button {
                     switchLeftView(to: leftView.next)
                 } label: {
@@ -58,21 +63,23 @@ struct ContentView: View {
                         .frame(width: 120)
                 }
                 .help("Switch to the \(leftView.next.title)")
-                switch leftView {
-                case .camera:
-                    cameraControls
-                case .internet:
-                    EmptyView()
-                case .file:
-                    Button("Open File…", systemImage: "doc.richtext") {
-                        isChoosingDocument = true
+                ZStack(alignment: .leading) {
+                    widestViewControls
+                        .hidden()
+                        .disabled(true)
+                    HStack {
+                        switch leftView {
+                        case .camera:
+                            cameraControls
+                        case .internet:
+                            EmptyView()
+                        case .file:
+                            Button("Open File…", systemImage: "doc.richtext") {
+                                isChoosingDocument = true
+                            }
+                            .keyboardShortcut("o", modifiers: .command)
+                        }
                     }
-                    .keyboardShortcut("o", modifiers: .command)
-                }
-                Spacer()
-                if let errorMessage = documentErrorMessage ?? camera.errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
                 }
                 Toggle(isOn: $showOpenAI) {
                     Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
@@ -105,6 +112,17 @@ struct ContentView: View {
     /// The camera runs only while it is turned on and the Camera view is showing.
     private var cameraShouldRun: Bool {
         cameraEnabled && leftView == .camera
+    }
+
+    /// Stands in for the widest set of a view's buttons, the Camera view's, to keep their space the same width.
+    private var widestViewControls: some View {
+        HStack {
+            Toggle("Camera", systemImage: "video", isOn: .constant(true))
+                .toggleStyle(.button)
+            Toggle("Rotate 180°", systemImage: "rotate.right", isOn: .constant(false))
+                .toggleStyle(.button)
+            Button("Capture page", systemImage: "camera") {}
+        }
     }
 
     /// The Camera view's buttons: the camera on and off, then rotating and capturing, or retaking a captured page.

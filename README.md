@@ -35,7 +35,7 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 - **Esc** or **Retake** goes back to the live camera.
 - Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
 - Drag the line between the selected text and the translation to resize them. The selected text starts at a quarter of the panel's height.
-- The view button at the bottom left switches the left side between three views: **Camera view**, then **Internet view**, then **File view**, and back to the camera. It shows the view you're in.
+- The view button at the bottom right switches the left side between three views: **Camera view**, then **Internet view**, then **File view**, and back to the camera. It shows the view you're in.
 - In the **Camera view**, **Camera** turns the camera on and off. The app remembers your choice. The camera also turns off by itself while the Internet or File view is showing, and comes back on when you return to the Camera view if it was on.
 - The **Internet view** shows a web page. Type or paste an address into the box at the top and press Return; anything that isn't an address is searched on Google. Select text on the page to translate it. The app opens the last page again next time.
 - In the **File view**, **Open File…** (Cmd+O) opens an HTML or PDF file. Select text in it to translate it, just like a captured page. The file stays open while you visit the other views. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
