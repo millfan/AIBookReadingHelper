@@ -16,6 +16,9 @@ final class CameraController: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
 
     let session = AVCaptureSession()
+    /// The one preview of the camera feed, kept for the life of the app. Attaching a new preview to the session
+    /// while it starts changes the session's connections under it, which crashes.
+    let previewLayer = AVCaptureVideoPreviewLayer()
     private let photoOutput = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "AIBookReadingHelper.camera")
     private var isConfigured = false
@@ -41,14 +44,27 @@ final class CameraController: NSObject, ObservableObject {
                 return
             }
             isConfigured = true
-        }
-
-        let session = self.session
-        sessionQueue.async {
-            if !session.isRunning {
-                session.startRunning()
+            previewLayer.videoGravity = .resizeAspect
+            previewLayer.session = session
+            // The feed is not mirrored, so the text on a page reads the right way round.
+            if let connection = previewLayer.connection, connection.isVideoMirroringSupported {
+                connection.automaticallyAdjustsVideoMirroring = false
+                connection.isVideoMirrored = false
             }
         }
+
+        // The preview shows once the camera has started, so nothing changes the session while it starts.
+        let session = self.session
+        await withCheckedContinuation { continuation in
+            sessionQueue.async {
+                if !session.isRunning {
+                    session.startRunning()
+                }
+                continuation.resume()
+            }
+        }
+        // Turned off again while starting: stop() has already been called and will stop the session.
+        guard !Task.isCancelled else { return }
         status = .running
     }
 

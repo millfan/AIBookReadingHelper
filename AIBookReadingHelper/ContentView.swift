@@ -172,8 +172,13 @@ struct ContentView: View {
                     notice("The camera is off. Click Camera to turn it on.")
                 } else {
                     switch camera.status {
-                    case .idle, .running:
-                        CameraPreviewView(session: camera.session, rotated180: rotateCamera)
+                    case .idle:
+                        // The preview waits for the camera to start: a preview made for the empty session at launch
+                        // stays black.
+                        ProgressView()
+                            .controlSize(.small)
+                    case .running:
+                        CameraPreviewView(previewLayer: camera.previewLayer, rotated180: rotateCamera)
                     case .unauthorized:
                         notice("Camera access is turned off. Turn it on in System Settings > Privacy & Security > Camera, then reopen the app.")
                     case .unavailable:
