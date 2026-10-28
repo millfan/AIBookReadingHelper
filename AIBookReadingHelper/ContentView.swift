@@ -7,18 +7,18 @@ struct ContentView: View {
     @State private var selectedText = ""
     @State private var isAnalyzing = false
     @AppStorage(SettingsKey.rotateCamera) private var rotateCamera = false
-    /// Turned off with the Camera button. The camera is also off while a file is open.
+    /// Turned off with the Camera button. The camera is also off while the Internet or File view is showing.
     @AppStorage(SettingsKey.cameraEnabled) private var cameraEnabled = true
     /// How much of the window's width the left side takes, set by dragging the divider.
     @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
-    /// The HTML or PDF file shown in place of the camera, if one has been opened.
+    /// Which view the left side shows: the camera, a web page or an opened file.
+    @State private var leftView = LeftView.camera
+    /// The HTML or PDF file shown in the File view, if one has been opened. It stays open while another view is showing.
     @State private var documentURL: URL?
     @State private var isChoosingDocument = false
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
     @State private var isEditingSelection = false
-    /// Whether the Internet view is showing in place of the camera.
-    @State private var isShowingWeb = false
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
     /// Whether the side panel shows ChatGPT instead of the selected text and translation.
@@ -30,7 +30,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The side panel stays put while the left side switches between the camera, a captured page and an opened file.
+            // The side panel stays put while the left side switches between the camera, a web page and an opened file.
             // The left side starts at 75% of the window's width; dragging the divider changes that.
             GeometryReader { geometry in
                 let leftWidth = clampedLeftWidth(geometry.size.width * leftFraction, in: geometry.size.width)
@@ -54,50 +54,26 @@ struct ContentView: View {
                         .foregroundStyle(.red)
                 }
                 Spacer()
-                Button("Open File…", systemImage: "doc.richtext") {
-                    isChoosingDocument = true
+                // One button steps through the views: Camera, then Internet, then File.
+                Button(leftView.title, systemImage: leftView.systemImage) {
+                    switchLeftView(to: leftView.next)
                 }
-                .keyboardShortcut("o", modifiers: .command)
+                .help("Switch to the \(leftView.next.title)")
                 Toggle(isOn: $showOpenAI) {
                     Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
                 }
                 .toggleStyle(.button)
                 .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
-                if !isShowingWeb {
-                    Button("Internet", systemImage: "globe") {
-                        closeDocument()
-                        isShowingWeb = true
+                switch leftView {
+                case .camera:
+                    cameraControls
+                case .internet:
+                    EmptyView()
+                case .file:
+                    Button("Open File…", systemImage: "doc.richtext") {
+                        isChoosingDocument = true
                     }
-                    .keyboardShortcut("l", modifiers: .command)
-                }
-                Toggle(isOn: $cameraEnabled) {
-                    Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
-                }
-                .toggleStyle(.button)
-                .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
-                if documentURL != nil || isShowingWeb {
-                    Button("Back to camera", systemImage: "camera") {
-                        closeDocument()
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
-                } else if camera.capturedImage == nil {
-                    // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
-                    Toggle(isOn: $rotateCamera) {
-                        Label("Rotate 180°", systemImage: "rotate.right")
-                    }
-                    .toggleStyle(.button)
-                    .disabled(camera.status != .running)
-                    Button("Capture page", systemImage: "camera") {
-                        camera.capturePage(rotated180: rotateCamera)
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.space, modifiers: []))
-                    .disabled(camera.status != .running)
-                } else {
-                    Button("Retake", systemImage: "arrow.counterclockwise") {
-                        selectedText = ""
-                        camera.retake()
-                    }
-                    .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
+                    .keyboardShortcut("o", modifiers: .command)
                 }
             }
             .padding()
@@ -111,7 +87,7 @@ struct ContentView: View {
                 documentErrorMessage = error.localizedDescription
             }
         }
-        // Runs again whenever the camera is turned on or off, or a file is opened or closed.
+        // Runs again whenever the camera is turned on or off, or another view is chosen.
         .task(id: cameraShouldRun) {
             if cameraShouldRun {
                 await camera.start()
@@ -122,9 +98,38 @@ struct ContentView: View {
         .onDisappear { camera.stop() }
     }
 
-    /// The camera runs only while it is turned on and no file or web page is showing.
+    /// The camera runs only while it is turned on and the Camera view is showing.
     private var cameraShouldRun: Bool {
-        cameraEnabled && documentURL == nil && !isShowingWeb
+        cameraEnabled && leftView == .camera
+    }
+
+    /// The Camera view's buttons: the camera on and off, then rotating and capturing, or retaking a captured page.
+    @ViewBuilder
+    private var cameraControls: some View {
+        Toggle(isOn: $cameraEnabled) {
+            Label("Camera", systemImage: cameraEnabled ? "video" : "video.slash")
+        }
+        .toggleStyle(.button)
+        .help(cameraEnabled ? "Turn the camera off" : "Turn the camera on")
+        if camera.capturedImage == nil {
+            // For a camera that sees the book upside down. Captured pages are turned too, so Live Text reads them.
+            Toggle(isOn: $rotateCamera) {
+                Label("Rotate 180°", systemImage: "rotate.right")
+            }
+            .toggleStyle(.button)
+            .disabled(camera.status != .running)
+            Button("Capture page", systemImage: "camera") {
+                camera.capturePage(rotated180: rotateCamera)
+            }
+            .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.space, modifiers: []))
+            .disabled(camera.status != .running)
+        } else {
+            Button("Retake", systemImage: "arrow.counterclockwise") {
+                selectedText = ""
+                camera.retake()
+            }
+            .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
+        }
     }
 
     /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
@@ -152,18 +157,34 @@ struct ContentView: View {
         }
     }
 
-    /// An opened HTML or PDF file, the Internet view, the captured page once one has been taken, or else the live camera.
+    /// The opened HTML or PDF file, a web page, or the camera: the captured page once one has been taken, or else the
+    /// live camera.
     @ViewBuilder
     private var leftPane: some View {
-        if let documentURL {
-            if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
-                PDFDocumentView(url: documentURL, selectedText: $selectedText)
+        switch leftView {
+        case .file:
+            if let documentURL {
+                if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
+                    PDFDocumentView(url: documentURL, selectedText: $selectedText)
+                } else {
+                    HTMLDocumentView(url: documentURL, selectedText: $selectedText)
+                }
             } else {
-                HTMLDocumentView(url: documentURL, selectedText: $selectedText)
+                ZStack {
+                    Color.black
+                    notice("Click Open File to open an HTML or PDF file.")
+                }
             }
-        } else if isShowingWeb {
+        case .internet:
             WebBrowserView(selectedText: $selectedText, isTypingAddress: $isTypingAddress)
-        } else if let image = camera.capturedImage {
+        case .camera:
+            cameraPane
+        }
+    }
+
+    @ViewBuilder
+    private var cameraPane: some View {
+        if let image = camera.capturedImage {
             page(image)
         } else {
             ZStack {
@@ -211,7 +232,10 @@ struct ContentView: View {
     }
 
     private func openDocument(_ url: URL) {
-        closeDocument()
+        documentURL?.stopAccessingSecurityScopedResource()
+        documentURL = nil
+        documentErrorMessage = nil
+        selectedText = ""
         // The file picker grants sandboxed access to the file only while it is being accessed.
         guard url.startAccessingSecurityScopedResource() else {
             documentErrorMessage = "The app wasn't allowed to open \(url.lastPathComponent)."
@@ -220,10 +244,8 @@ struct ContentView: View {
         documentURL = url
     }
 
-    private func closeDocument() {
-        documentURL?.stopAccessingSecurityScopedResource()
-        documentURL = nil
-        isShowingWeb = false
+    private func switchLeftView(to view: LeftView) {
+        leftView = view
         documentErrorMessage = nil
         selectedText = ""
     }
@@ -356,6 +378,38 @@ private struct SelectionPanel: View {
                             direction: direction,
                             dictionaryWord: dictionaryWord)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+/// The views the left side switches between.
+enum LeftView {
+    case camera
+    case internet
+    case file
+
+    var title: String {
+        switch self {
+        case .camera: "Camera view"
+        case .internet: "Internet view"
+        case .file: "File view"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .camera: "camera"
+        case .internet: "globe"
+        case .file: "doc.richtext"
+        }
+    }
+
+    /// The view the switch button goes to next.
+    var next: LeftView {
+        switch self {
+        case .camera: .internet
+        case .internet: .file
+        case .file: .camera
         }
     }
 }
