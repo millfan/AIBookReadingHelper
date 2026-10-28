@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var documentURL: URL?
     /// Where the last opened file is, kept so the File view shows it again after the app is reopened.
     @AppStorage(SettingsKey.documentBookmark) private var documentBookmark = Data()
+    /// How large the File view shows its page, changed with Cmd+ and Cmd− from the View menu.
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
     @State private var isChoosingDocument = false
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
@@ -207,9 +209,9 @@ struct ContentView: View {
         case .file:
             if let documentURL {
                 if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
-                    PDFDocumentView(url: documentURL, selectedText: $selectedText)
+                    PDFDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
                 } else {
-                    HTMLDocumentView(url: documentURL, selectedText: $selectedText)
+                    HTMLDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
                 }
             } else {
                 ZStack {

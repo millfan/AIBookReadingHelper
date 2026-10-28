@@ -7,6 +7,7 @@ struct WebBrowserView: View {
     /// Whether the reader is typing in the address box, where Esc must not close the view.
     @Binding var isTypingAddress: Bool
     @AppStorage(SettingsKey.webAddress) private var lastAddress = ""
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
     @State private var address = ""
     @State private var pageURL: URL?
     @FocusState private var isAddressFocused: Bool
@@ -24,7 +25,7 @@ struct WebBrowserView: View {
             .padding(8)
             Divider()
             if let pageURL {
-                HTMLDocumentView(url: pageURL, selectedText: $selectedText) { url in
+                HTMLDocumentView(url: pageURL, selectedText: $selectedText, zoom: zoom) { url in
                     // Following a link on the page shows its address in the box.
                     address = url.absoluteString
                     lastAddress = address

@@ -11,7 +11,23 @@ enum SettingsKey {
     static let webAddress = "webAddress"
     static let sidePanel = "sidePanel"
     static let documentBookmark = "documentBookmark"
+    static let pageZoom = "pageZoom"
     static let cameraEnabled = "cameraEnabled"
+}
+
+/// How large the File and Internet views show their pages, changed with Cmd+ and Cmd−. 1 is the normal size.
+enum PageZoom {
+    static let normal = 1.0
+    static let step = 0.1
+    static let range = 0.5...3.0
+
+    static func larger(than zoom: Double) -> Double {
+        min(((zoom + step) * 10).rounded() / 10, range.upperBound)
+    }
+
+    static func smaller(than zoom: Double) -> Double {
+        max(((zoom - step) * 10).rounded() / 10, range.lowerBound)
+    }
 }
 
 /// The service that translates the selected text. Chosen from the View menu.
