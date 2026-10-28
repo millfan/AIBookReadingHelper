@@ -35,6 +35,10 @@ struct ContentView: View {
     @State private var isTypingInOpenAI = false
     /// Whether the reader is typing in Google Translate.
     @State private var isTypingInGoogleTranslate = false
+    /// Set once Notes has been shown, so it stays loaded, and a document stays open, while another panel is showing.
+    @State private var hasShownNotes = false
+    /// Whether the reader is typing in Notes.
+    @State private var isTypingInNotes = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -171,10 +175,11 @@ struct ContentView: View {
         isEditingSelection || isTypingAddress
             || (sidePanel == .openAI && isTypingInOpenAI)
             || (sidePanel == .googleTranslate && isTypingInGoogleTranslate)
+            || (sidePanel == .notes && isTypingInNotes)
     }
 
-    /// The selected text and translation, ChatGPT or Google Translate. ChatGPT and Google Translate are kept loaded once
-    /// shown, just hidden, so switching back to them doesn't reload the page or lose a conversation.
+    /// The selected text and translation, ChatGPT, Google Translate or Notes. The web panels are kept loaded once shown,
+    /// just hidden, so switching back to them doesn't reload the page or lose a conversation or a note.
     private var sidePanelView: some View {
         ZStack {
             SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
@@ -191,11 +196,17 @@ struct ContentView: View {
                     .opacity(sidePanel == .googleTranslate ? 1 : 0)
                     .allowsHitTesting(sidePanel == .googleTranslate)
             }
+            if sidePanel == .notes || hasShownNotes {
+                NotesView(isTyping: $isTypingInNotes)
+                    .opacity(sidePanel == .notes ? 1 : 0)
+                    .allowsHitTesting(sidePanel == .notes)
+            }
         }
         .onChange(of: sidePanel, initial: true) {
             switch sidePanel {
             case .openAI: hasShownOpenAI = true
             case .googleTranslate: hasShownGoogleTranslate = true
+            case .notes: hasShownNotes = true
             case .normal: break
             }
         }
