@@ -9,6 +9,7 @@ enum SettingsKey {
     static let leftPaneFraction = "leftPaneFraction"
     static let selectedTextFraction = "selectedTextFraction"
     static let webAddress = "webAddress"
+    static let showOpenAI = "showOpenAI"
     static let cameraEnabled = "cameraEnabled"
 }
 
