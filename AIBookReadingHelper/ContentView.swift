@@ -21,6 +21,12 @@ struct ContentView: View {
     @State private var isShowingWeb = false
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
+    /// Whether the side panel shows ChatGPT instead of the selected text and translation.
+    @AppStorage(SettingsKey.showOpenAI) private var showOpenAI = false
+    /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while the normal panel is showing.
+    @State private var hasShownOpenAI = false
+    /// Whether the reader is typing in ChatGPT.
+    @State private var isTypingInOpenAI = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,7 +40,7 @@ struct ContentView: View {
                     PaneDivider { location in
                         leftFraction = clampedLeftWidth(location, in: geometry.size.width) / geometry.size.width
                     }
-                    SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
+                    sidePanel
                         .frame(maxWidth: .infinity)
                 }
                 .coordinateSpace(.named(PaneDivider.coordinateSpace))
@@ -52,6 +58,11 @@ struct ContentView: View {
                     isChoosingDocument = true
                 }
                 .keyboardShortcut("o", modifiers: .command)
+                Toggle(isOn: $showOpenAI) {
+                    Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
+                }
+                .toggleStyle(.button)
+                .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
                 if !isShowingWeb {
                     Button("Internet", systemImage: "globe") {
                         closeDocument()
@@ -118,7 +129,27 @@ struct ContentView: View {
 
     /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
     private var isTyping: Bool {
-        isEditingSelection || isTypingAddress
+        isEditingSelection || isTypingAddress || (showOpenAI && isTypingInOpenAI)
+    }
+
+    /// The selected text and translation, or ChatGPT. ChatGPT is kept loaded once shown, just hidden,
+    /// so switching back to it doesn't reload the page or lose a conversation.
+    private var sidePanel: some View {
+        ZStack {
+            SelectionPanel(selectedText: $selectedText, isAnalyzing: isAnalyzing, isEditing: $isEditingSelection)
+                .opacity(showOpenAI ? 0 : 1)
+                .allowsHitTesting(!showOpenAI)
+            if showOpenAI || hasShownOpenAI {
+                OpenAIView(selectedText: selectedText, isShowing: showOpenAI, isTyping: $isTypingInOpenAI)
+                    .opacity(showOpenAI ? 1 : 0)
+                    .allowsHitTesting(showOpenAI)
+            }
+        }
+        .onChange(of: showOpenAI, initial: true) {
+            if showOpenAI {
+                hasShownOpenAI = true
+            }
+        }
     }
 
     /// An opened HTML or PDF file, the Internet view, the captured page once one has been taken, or else the live camera.
