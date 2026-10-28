@@ -15,6 +15,8 @@ struct ContentView: View {
     @State private var leftView = LeftView.camera
     /// The HTML or PDF file shown in the File view, if one has been opened. It stays open while another view is showing.
     @State private var documentURL: URL?
+    /// Where the last opened file is, kept so the File view shows it again after the app is reopened.
+    @AppStorage(SettingsKey.documentBookmark) private var documentBookmark = Data()
     @State private var isChoosingDocument = false
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
@@ -113,6 +115,7 @@ struct ContentView: View {
                 camera.stop()
             }
         }
+        .onAppear(perform: reopenLastDocument)
         .onDisappear { camera.stop() }
     }
 
@@ -281,6 +284,27 @@ struct ContentView: View {
             return
         }
         documentURL = url
+        documentBookmark = (try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil,
+                                                  relativeTo: nil)) ?? Data()
+    }
+
+    /// Opens the file that was open when the app was last used, if it is still there.
+    private func reopenLastDocument() {
+        guard documentURL == nil, !documentBookmark.isEmpty else { return }
+        var isStale = false
+        guard let url = try? URL(resolvingBookmarkData: documentBookmark, options: .withSecurityScope,
+                                 relativeTo: nil, bookmarkDataIsStale: &isStale),
+              url.startAccessingSecurityScopedResource() else {
+            // The file was moved away or deleted.
+            documentBookmark = Data()
+            return
+        }
+        documentURL = url
+        // The file was moved or renamed, so the bookmark is saved again to keep finding it.
+        if isStale, let bookmark = try? url.bookmarkData(options: .withSecurityScope,
+                                                          includingResourceValuesForKeys: nil, relativeTo: nil) {
+            documentBookmark = bookmark
+        }
     }
 
     private func switchLeftView(to view: LeftView) {

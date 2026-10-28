@@ -10,6 +10,7 @@ enum SettingsKey {
     static let selectedTextFraction = "selectedTextFraction"
     static let webAddress = "webAddress"
     static let sidePanel = "sidePanel"
+    static let documentBookmark = "documentBookmark"
     static let cameraEnabled = "cameraEnabled"
 }
 
