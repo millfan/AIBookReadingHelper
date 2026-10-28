@@ -49,21 +49,15 @@ struct ContentView: View {
             Divider()
 
             HStack {
-                if let errorMessage = documentErrorMessage ?? camera.errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                }
-                Spacer()
-                // One button steps through the views: Camera, then Internet, then File.
-                Button(leftView.title, systemImage: leftView.systemImage) {
+                // One button steps through the views: Camera, then Internet, then File. It stays at the left edge with a
+                // fixed width, so it doesn't move as the view's own buttons change.
+                Button {
                     switchLeftView(to: leftView.next)
+                } label: {
+                    Label(leftView.title, systemImage: leftView.systemImage)
+                        .frame(width: 120)
                 }
                 .help("Switch to the \(leftView.next.title)")
-                Toggle(isOn: $showOpenAI) {
-                    Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
-                }
-                .toggleStyle(.button)
-                .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
                 switch leftView {
                 case .camera:
                     cameraControls
@@ -75,6 +69,16 @@ struct ContentView: View {
                     }
                     .keyboardShortcut("o", modifiers: .command)
                 }
+                Spacer()
+                if let errorMessage = documentErrorMessage ?? camera.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
+                Toggle(isOn: $showOpenAI) {
+                    Label("OpenAI view", systemImage: "bubble.left.and.bubble.right")
+                }
+                .toggleStyle(.button)
+                .help(showOpenAI ? "Show the selected text and translation" : "Show ChatGPT in the side panel")
             }
             .padding()
         }
