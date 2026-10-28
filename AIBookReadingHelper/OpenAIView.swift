@@ -109,34 +109,63 @@ private struct OpenAIWebView: NSViewRepresentable {
         private var pendingText: String?
 
         /// Replaces what is in ChatGPT's question box with the text, without sending it.
-        /// The box is a rich text editor, so the text is typed in with insertText, which the editor notices,
-        /// rather than set directly.
+        /// The box is a rich text editor that only takes text it sees typed or pasted, so the text is typed in with
+        /// insertText, then pasted, then written in directly, until the box shows it. The script waits a few seconds
+        /// for the box, which ChatGPT draws a moment after the page loads.
         func insert(_ text: String, into webView: WKWebView) {
-            guard !text.isEmpty,
-                  let data = try? JSONEncoder().encode(text),
-                  let literal = String(data: data, encoding: .utf8) else { return }
+            guard !text.isEmpty else { return }
+            pendingText = text
             let script = """
-            (function (text) {
-                var box = document.querySelector('#prompt-textarea') || document.querySelector('textarea');
-                if (!box) { return false; }
-                box.focus();
-                if (box.isContentEditable) {
-                    document.execCommand('selectAll', false, null);
-                    document.execCommand('insertText', false, text);
-                } else {
-                    var setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-                    setValue.call(box, text);
-                    box.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-                return true;
-            })(\(literal))
+            const findBox = () =>
+                document.querySelector('#prompt-textarea[contenteditable="true"]') ||
+                document.querySelector('[contenteditable="true"].ProseMirror') ||
+                document.querySelector('#prompt-textarea') ||
+                document.querySelector('form textarea:not([hidden]):not([disabled])');
+            for (let i = 0; i < 40 && !findBox(); i++) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+            }
+            const box = findBox();
+            if (!box) { return false; }
+            const normalize = s => (s || '').replace(/\\s+/g, ' ').trim();
+            const wanted = normalize(text);
+            const shows = () => normalize(box.isContentEditable ? box.innerText : box.value) === wanted;
+            box.focus();
+            if (!box.isContentEditable) {
+                const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+                setValue.call(box, text);
+                box.dispatchEvent(new Event('input', { bubbles: true }));
+                return shows();
+            }
+            const selectAll = () => {
+                const range = document.createRange();
+                range.selectNodeContents(box);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            };
+            selectAll();
+            document.execCommand('insertText', false, text);
+            if (!shows()) {
+                selectAll();
+                const data = new DataTransfer();
+                data.setData('text/plain', text);
+                box.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+            }
+            if (!shows()) {
+                box.replaceChildren(...text.split('\\n').map(line => {
+                    const paragraph = document.createElement('p');
+                    paragraph.textContent = line;
+                    return paragraph;
+                }));
+                box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+            }
+            return shows();
             """
-            webView.evaluateJavaScript(script) { [weak self] result, _ in
-                // The question box isn't there until the page has loaded and the reader has signed in.
-                if (result as? Bool) != true {
-                    self?.pendingText = text
-                } else {
-                    self?.pendingText = nil
+            webView.callAsyncJavaScript(script, arguments: ["text": text], in: nil, in: .page) { [weak self] result in
+                guard let self, self.pendingText == text else { return }
+                // The question box isn't there until the reader has signed in, so a failed try waits for the next page.
+                if case .success(let shown) = result, (shown as? Bool) == true {
+                    self.pendingText = nil
                 }
             }
         }
