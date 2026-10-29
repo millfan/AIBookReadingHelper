@@ -40,9 +40,10 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 - The **Internet view** shows a web page. Type or paste an address into the box at the top and press Return; anything that isn't an address is searched on Google. Select text on the page to translate it. The app opens the last page again next time.
 - In the **File view**, **Open File…** (Cmd+O) opens an HTML or PDF file. Select text in it to translate it, just like a captured page. The file stays open while you visit the other views, and the app opens it again the next time you use it. For HTML, only the file itself is opened, so images or styles stored next to it may not show. For PDF, only files with real text can be selected; a scanned PDF made of pictures has no text to pick.
 - In the File and Internet views, **Zoom In** (Cmd+=) and **Zoom Out** (Cmd+−) in the View menu make the page larger or smaller, and **Actual Size** (Cmd+0) goes back to the normal size. The app remembers the size.
-- The side panel button, at the far right, switches the side panel between three views: **Normal view** (the selected text, its translation and the dictionary), then **OpenAI view**, then **Google Translate**, and back. It shows the view you're in.
+- The side panel button, at the far right, switches the side panel between four views: **Normal view** (the selected text, its translation and the dictionary), then **OpenAI view**, then **Google Translate**, then **Notes**, and back. It shows the view you're in.
 - **OpenAI view** shows ChatGPT. Sign in with your own account the first time; the app keeps you signed in. Whatever you select on the page, or paste, is put into ChatGPT's question box, ready for you to add a question and send.
 - **Google Translate** shows translate.google.com. Whatever you select on the page is put into its input box and translated, in the direction chosen in the View menu.
+- **Notes** shows Google Docs, for taking notes while you read. Sign in with your Google account the first time; the app keeps you signed in. The selected text isn't put into it.
 - **Rotate 180°**, next to **Capture page**, turns the camera picture upside down, for when the camera sees the book upside down. Captured pages are turned too, so their text can still be selected.
 
 ## Translation

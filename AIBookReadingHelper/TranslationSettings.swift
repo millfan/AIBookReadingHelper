@@ -90,12 +90,14 @@ enum SidePanel: String {
     case normal
     case openAI
     case googleTranslate
+    case notes
 
     var title: String {
         switch self {
         case .normal: "Normal view"
         case .openAI: "OpenAI view"
         case .googleTranslate: "Google Translate"
+        case .notes: "Notes"
         }
     }
 
@@ -104,6 +106,7 @@ enum SidePanel: String {
         case .normal: "character.book.closed"
         case .openAI: "bubble.left.and.bubble.right"
         case .googleTranslate: "globe"
+        case .notes: "note.text"
         }
     }
 
@@ -112,7 +115,8 @@ enum SidePanel: String {
         switch self {
         case .normal: .openAI
         case .openAI: .googleTranslate
-        case .googleTranslate: .normal
+        case .googleTranslate: .notes
+        case .notes: .normal
         }
     }
 }
