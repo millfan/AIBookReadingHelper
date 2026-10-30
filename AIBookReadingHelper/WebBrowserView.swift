@@ -6,6 +6,9 @@ struct WebBrowserView: View {
     @Binding var selectedText: String
     /// Whether the reader is typing in the address box, where Esc must not close the view.
     @Binding var isTypingAddress: Bool
+    /// Changed to take a picture of the visible page, which is passed to `onSnapshot`.
+    var snapshotRequest = 0
+    var onSnapshot: ((NSImage) -> Void)? = nil
     @AppStorage(SettingsKey.webAddress) private var lastAddress = ""
     @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
     @State private var address = ""
@@ -25,11 +28,12 @@ struct WebBrowserView: View {
             .padding(8)
             Divider()
             if let pageURL {
-                HTMLDocumentView(url: pageURL, selectedText: $selectedText, zoom: zoom) { url in
+                HTMLDocumentView(url: pageURL, selectedText: $selectedText, zoom: zoom, snapshotRequest: snapshotRequest,
+                                 onSnapshot: onSnapshot, onNavigate: { url in
                     // Following a link on the page shows its address in the box.
                     address = url.absoluteString
                     lastAddress = address
-                }
+                })
             } else {
                 Color(nsColor: .textBackgroundColor)
                     .overlay {

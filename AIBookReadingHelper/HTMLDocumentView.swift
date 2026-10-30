@@ -7,6 +7,9 @@ struct HTMLDocumentView: NSViewRepresentable {
     @Binding var selectedText: String
     /// How large to show the page. 1 is the normal size.
     var zoom = PageZoom.normal
+    /// Changed to take a picture of the visible page, which is passed to `onSnapshot`.
+    var snapshotRequest = 0
+    var onSnapshot: ((NSImage) -> Void)? = nil
     /// Called with the address of each page the view goes to, including by following links.
     var onNavigate: ((URL) -> Void)? = nil
 
@@ -32,6 +35,17 @@ struct HTMLDocumentView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.selectedText = $selectedText
         context.coordinator.onNavigate = onNavigate
+        if snapshotRequest != context.coordinator.snapshotRequest {
+            context.coordinator.snapshotRequest = snapshotRequest
+            let onSnapshot = onSnapshot
+            webView.takeSnapshot(with: nil) { [weak webView] image, _ in
+                guard let image else { return }
+                // The page and its address box are hidden behind the picture, so they give up the keyboard.
+                // Otherwise they keep taking keys such as Esc, which must go to Back to page.
+                webView?.window?.makeFirstResponder(nil)
+                onSnapshot?(image)
+            }
+        }
         if webView.pageZoom != CGFloat(zoom) {
             webView.pageZoom = CGFloat(zoom)
         }
@@ -75,6 +89,7 @@ struct HTMLDocumentView: NSViewRepresentable {
         var loadedURL: URL?
         weak var webView: WKWebView?
         var onNavigate: ((URL) -> Void)?
+        var snapshotRequest = 0
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             if let url = webView.url {
