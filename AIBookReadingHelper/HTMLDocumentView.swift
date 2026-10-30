@@ -38,10 +38,12 @@ struct HTMLDocumentView: NSViewRepresentable {
         if snapshotRequest != context.coordinator.snapshotRequest {
             context.coordinator.snapshotRequest = snapshotRequest
             let onSnapshot = onSnapshot
-            webView.takeSnapshot(with: nil) { image, _ in
-                if let image {
-                    onSnapshot?(image)
-                }
+            webView.takeSnapshot(with: nil) { [weak webView] image, _ in
+                guard let image else { return }
+                // The page and its address box are hidden behind the picture, so they give up the keyboard.
+                // Otherwise they keep taking keys such as Esc, which must go to Back to page.
+                webView?.window?.makeFirstResponder(nil)
+                onSnapshot?(image)
             }
         }
         if webView.pageZoom != CGFloat(zoom) {
