@@ -23,6 +23,10 @@ struct ContentView: View {
     @State private var documentErrorMessage: String?
     /// Whether the reader is typing in the selected text area, where Space and Esc must type rather than act as shortcuts.
     @State private var isEditingSelection = false
+    /// A picture of the web page, taken with Capture text, for pages such as Kindle's whose text can't be selected.
+    /// Live Text finds the words in it.
+    @State private var webSnapshot: NSImage?
+    @State private var webSnapshotRequest = 0
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
     /// Whether the side panel shows the selected text and translation, ChatGPT or Google Translate.
@@ -84,7 +88,18 @@ struct ContentView: View {
                         case .camera:
                             cameraControls
                         case .internet:
-                            EmptyView()
+                            if webSnapshot == nil {
+                                Button("Capture text", systemImage: "text.viewfinder") {
+                                    webSnapshotRequest += 1
+                                }
+                                .help("Take a picture of the page and select its text with Live Text, for pages whose text can't be selected, such as Kindle books")
+                            } else {
+                                Button("Back to page", systemImage: "arrow.uturn.backward") {
+                                    selectedText = ""
+                                    webSnapshot = nil
+                                }
+                                .keyboardShortcut(isTyping ? nil : KeyboardShortcut(.escape, modifiers: []))
+                            }
                         case .file:
                             Button("Open File…", systemImage: "doc.richtext") {
                                 isChoosingDocument = true
@@ -231,7 +246,19 @@ struct ContentView: View {
                 }
             }
         case .internet:
-            WebBrowserView(selectedText: $selectedText, isTypingAddress: $isTypingAddress)
+            // The page stays loaded behind its picture, so going back to it doesn't reload it.
+            ZStack {
+                WebBrowserView(selectedText: $selectedText, isTypingAddress: $isTypingAddress,
+                               snapshotRequest: webSnapshotRequest) { image in
+                    selectedText = ""
+                    webSnapshot = image
+                }
+                .opacity(webSnapshot == nil ? 1 : 0)
+                .allowsHitTesting(webSnapshot == nil)
+                if let webSnapshot {
+                    page(webSnapshot)
+                }
+            }
         case .camera:
             cameraPane
         }
@@ -322,6 +349,7 @@ struct ContentView: View {
 
     private func switchLeftView(to view: LeftView) {
         leftView = view
+        webSnapshot = nil
         documentErrorMessage = nil
         selectedText = ""
     }
