@@ -35,7 +35,7 @@ The app icon is drawn in `design/AppIcon.svg`. Its PNG sizes are in `AIBookReadi
 - **Esc** or **Retake** goes back to the live camera.
 - Drag the line between the left side and the panel to resize them. The app remembers where you leave it.
 - Drag the line between the selected text and the translation to resize them. The selected text starts at a quarter of the panel's height.
-- The view button at the bottom right switches the left side between three views: **Camera view**, then **Internet view**, then **File view**, and back to the camera. It shows the view you're in.
+- The view button at the bottom right switches the left side between three views: **Camera view**, then **Internet view**, then **File view**, and back to the camera. It shows the view you're in. The app opens in the views, left and right, that were showing when it was last closed.
 - In the **Camera view**, **Camera** turns the camera on and off. The app remembers your choice. The camera also turns off by itself while the Internet or File view is showing, and comes back on when you return to the Camera view if it was on.
 - The **Internet view** shows a web page. Type or paste an address into the box at the top and press Return; anything that isn't an address is searched on Google. Select text on the page to translate it. The app opens the last page again next time.
 - Some pages, such as Kindle books at read.amazon.com, show their text as pictures, so it can't be selected. Click **Capture text** in the Internet view to take a picture of the page; Live Text then lets you select its words like a captured camera page. **Back to page** (Esc) returns to the live page.

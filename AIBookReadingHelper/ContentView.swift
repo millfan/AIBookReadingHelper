@@ -11,8 +11,8 @@ struct ContentView: View {
     @AppStorage(SettingsKey.cameraEnabled) private var cameraEnabled = true
     /// How much of the window's width the left side takes, set by dragging the divider.
     @AppStorage(SettingsKey.leftPaneFraction) private var leftFraction = 0.75
-    /// Which view the left side shows: the camera, a web page or an opened file.
-    @State private var leftView = LeftView.camera
+    /// Which view the left side shows: the camera, a web page or an opened file. Remembered, so the app opens in it.
+    @AppStorage(SettingsKey.leftView) private var leftView = LeftView.camera
     /// The HTML or PDF file shown in the File view, if one has been opened. It stays open while another view is showing.
     @State private var documentURL: URL?
     /// Where the last opened file is, kept so the File view shows it again after the app is reopened.
@@ -487,7 +487,7 @@ private struct SelectionPanel: View {
 }
 
 /// The views the left side switches between.
-enum LeftView {
+enum LeftView: String {
     case camera
     case internet
     case file
