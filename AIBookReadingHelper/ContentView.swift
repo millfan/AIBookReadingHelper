@@ -233,16 +233,20 @@ struct ContentView: View {
     private var leftPane: some View {
         switch leftView {
         case .file:
-            if let documentURL {
-                if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
-                    PDFDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
+            VStack(spacing: 0) {
+                fileAddressBar
+                Divider()
+                if let documentURL {
+                    if UTType(filenameExtension: documentURL.pathExtension)?.conforms(to: .pdf) == true {
+                        PDFDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
+                    } else {
+                        HTMLDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
+                    }
                 } else {
-                    HTMLDocumentView(url: documentURL, selectedText: $selectedText, zoom: zoom)
-                }
-            } else {
-                ZStack {
-                    Color.black
-                    notice("Click Open File to open an HTML or PDF file.")
+                    ZStack {
+                        Color.black
+                        notice("Click Open File to open an HTML or PDF file.")
+                    }
                 }
             }
         case .internet:
@@ -262,6 +266,32 @@ struct ContentView: View {
         case .camera:
             cameraPane
         }
+    }
+
+    /// The opened file's address, in a box like the Internet view's address box. It can be selected and copied but
+    /// not typed over, because the app may open only files picked with Open File.
+    private var fileAddressBar: some View {
+        HStack {
+            Image(systemName: "doc.richtext")
+                .foregroundStyle(.secondary)
+            Group {
+                if let documentURL {
+                    Text(documentURL.absoluteString.removingPercentEncoding ?? documentURL.absoluteString)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                } else {
+                    Text("Click Open File to open an HTML or PDF file")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color(nsColor: .separatorColor)))
+        }
+        .padding(8)
     }
 
     @ViewBuilder
@@ -324,8 +354,14 @@ struct ContentView: View {
             return
         }
         documentURL = url
-        documentBookmark = (try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil,
-                                                  relativeTo: nil)) ?? Data()
+        // The app may only read files the reader picks, and a bookmark that asks for more can't be made.
+        documentBookmark = (try? Self.bookmark(for: url)) ?? Data()
+    }
+
+    /// A bookmark that lets the app read the file again after it is reopened.
+    private static func bookmark(for url: URL) throws -> Data {
+        try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                             includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
     /// Opens the file that was open when the app was last used, if it is still there.
@@ -341,8 +377,7 @@ struct ContentView: View {
         }
         documentURL = url
         // The file was moved or renamed, so the bookmark is saved again to keep finding it.
-        if isStale, let bookmark = try? url.bookmarkData(options: .withSecurityScope,
-                                                          includingResourceValuesForKeys: nil, relativeTo: nil) {
+        if isStale, let bookmark = try? Self.bookmark(for: url) {
             documentBookmark = bookmark
         }
     }
