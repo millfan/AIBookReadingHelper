@@ -48,16 +48,21 @@ private struct NotesWebView: NSViewRepresentable {
         configuration.userContentController.addUserScript(WKUserScript(source: Self.hideUnsupportedBrowserBanner,
                                                                        injectionTime: .atDocumentEnd,
                                                                        forMainFrameOnly: true))
+        // Google Docs warns that the browser is unsupported unless it is named as Safari. This adds the name and
+        // version of the Safari on this Mac to WebKit's own description, as Safari itself does.
+        configuration.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
-        // Unlike the other panels, Notes keeps the web view's own browser name, as the Internet view does, where
-        // Google Docs draws its pages sharp.
         webView.uiDelegate = context.coordinator
         webView.load(URLRequest(url: NotesView.address))
         return webView
     }
 
-    /// Without Safari's name, Google Docs shows a banner saying the browser is no longer supported, though it works.
-    /// This hides the banner, the smallest block around its message, whenever Docs shows it.
+    /// The version of Safari installed on this Mac.
+    static let safariVersion = Bundle(path: "/Applications/Safari.app")?
+        .infoDictionary?["CFBundleShortVersionString"] as? String ?? "26.0"
+
+    /// Should Google Docs still say the browser is no longer supported, though it works, this hides that banner, the
+    /// smallest block around its message, whenever Docs shows it.
     static let hideUnsupportedBrowserBanner = """
     (function () {
         var message = 'browser version is no longer supported';
