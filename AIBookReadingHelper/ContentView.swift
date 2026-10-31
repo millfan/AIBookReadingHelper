@@ -29,6 +29,11 @@ struct ContentView: View {
     @State private var webSnapshotRequest = 0
     /// Whether the reader is typing in the Internet view's address box.
     @State private var isTypingAddress = false
+    /// What is in the File view's address box: the opened file's address, or one the reader is typing.
+    @State private var fileAddress = ""
+    @FocusState private var isFileAddressFocused: Bool
+    /// Whether the reader is typing in the File view's address box.
+    @State private var isTypingFileAddress = false
     /// Whether the side panel shows the selected text and translation, ChatGPT or Google Translate.
     @AppStorage(SettingsKey.sidePanel) private var sidePanel = SidePanel.normal
     /// Set once ChatGPT has been shown, so it stays loaded, and signed in, while another panel is showing.
@@ -185,9 +190,9 @@ struct ContentView: View {
         }
     }
 
-    /// While the reader types in the panel or the address box, Space and Esc type there instead of acting as shortcuts.
+    /// While the reader types in the panel or an address box, Space and Esc type there instead of acting as shortcuts.
     private var isTyping: Bool {
-        isEditingSelection || isTypingAddress
+        isEditingSelection || isTypingAddress || isTypingFileAddress
             || (sidePanel == .openAI && isTypingInOpenAI)
             || (sidePanel == .googleTranslate && isTypingInGoogleTranslate)
             || (sidePanel == .notes && isTypingInNotes)
@@ -268,30 +273,79 @@ struct ContentView: View {
         }
     }
 
-    /// The opened file's address, in a box like the Internet view's address box. It can be selected and copied but
-    /// not typed over, because the app may open only files picked with Open File.
+    /// The opened file's address, in a box like the Internet view's address box. Typing a file's address or path
+    /// there and pressing Return opens it.
     private var fileAddressBar: some View {
         HStack {
             Image(systemName: "doc.richtext")
                 .foregroundStyle(.secondary)
-            Group {
-                if let documentURL {
-                    Text(documentURL.absoluteString.removingPercentEncoding ?? documentURL.absoluteString)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                } else {
-                    Text("Click Open File to open an HTML or PDF file")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 5))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color(nsColor: .separatorColor)))
+            TextField("Type a file's address or path and press Return, or click Open File", text: $fileAddress)
+                .textFieldStyle(.roundedBorder)
+                .focused($isFileAddressFocused)
+                .onSubmit(openFileAddress)
         }
         .padding(8)
+        .onChange(of: documentURL, initial: true) {
+            fileAddress = documentURL.map(Self.displayAddress) ?? ""
+        }
+        .onChange(of: isFileAddressFocused) {
+            isTypingFileAddress = isFileAddressFocused
+        }
+        .onDisappear {
+            isTypingFileAddress = false
+        }
+    }
+
+    /// A file's address as shown in the box, with spaces and other characters as they are rather than escaped.
+    private static func displayAddress(of url: URL) -> String {
+        url.absoluteString.removingPercentEncoding ?? url.absoluteString
+    }
+
+    /// The file named in the box: a file:// address, a path starting with / or ~, or either with escaped characters.
+    static func fileURL(from text: String) -> URL? {
+        var text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if text.lowercased().hasPrefix("file://") {
+            text = String(text.dropFirst("file://".count))
+            if text.lowercased().hasPrefix("localhost/") {
+                text = String(text.dropFirst("localhost".count))
+            }
+            text = text.removingPercentEncoding ?? text
+        }
+        text = (text as NSString).expandingTildeInPath
+        guard text.hasPrefix("/") else { return nil }
+        return URL(fileURLWithPath: text)
+    }
+
+    /// Opens the file typed in the box. The app may read only files the reader has picked, so for any other file
+    /// the Open dialog appears with it selected, and clicking Open gives the app access.
+    private func openFileAddress() {
+        isFileAddressFocused = false
+        guard let url = Self.fileURL(from: fileAddress) else {
+            documentErrorMessage = "Type a file's path, such as ~/Documents/book.html, or its file:// address."
+            return
+        }
+        if let documentURL, documentURL.standardizedFileURL.path == url.standardizedFileURL.path {
+            return
+        }
+        guard ["html", "htm", "pdf"].contains(url.pathExtension.lowercased()) else {
+            documentErrorMessage = "Only HTML and PDF files can be opened."
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.html, .pdf]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Click Open to show \(url.lastPathComponent)."
+        // A file's address here makes the dialog open in its folder with the file selected.
+        panel.directoryURL = url
+        panel.begin { response in
+            if response == .OK, let chosen = panel.url {
+                openDocument(chosen)
+            } else {
+                fileAddress = documentURL.map(Self.displayAddress) ?? ""
+            }
+        }
     }
 
     @ViewBuilder
