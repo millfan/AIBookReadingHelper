@@ -34,6 +34,8 @@ struct NotesView: View {
 private struct NotesWebView: NSViewRepresentable {
     let reloadCount: Int
     @Binding var isTyping: Bool
+    /// The size set with Cmd+ and Cmd−, shared with the File and Internet views.
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -43,8 +45,8 @@ private struct NotesWebView: NSViewRepresentable {
         // The default data store keeps cookies on disk, so the reader stays signed in.
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        configuration.presentAsInstalledSafari()
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
-        webView.customUserAgent = FocusReportingWebView.safariUserAgent
         webView.uiDelegate = context.coordinator
         webView.load(URLRequest(url: NotesView.address))
         return webView
@@ -52,6 +54,9 @@ private struct NotesWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: FocusReportingWebView, context: Context) {
         webView.reportFocus(to: $isTyping)
+        if webView.pageZoom != CGFloat(zoom) {
+            webView.pageZoom = CGFloat(zoom)
+        }
         if reloadCount != context.coordinator.reloadCount {
             context.coordinator.reloadCount = reloadCount
             webView.load(URLRequest(url: NotesView.address))

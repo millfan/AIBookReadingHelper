@@ -33,3 +33,47 @@ final class FocusReportingWebView: WKWebView {
         }
     }
 }
+
+extension WKWebViewConfiguration {
+    /// Names the browser as the Safari installed on this Mac, added to WebKit's own description as Safari itself does,
+    /// so Google Docs doesn't call it unsupported. Should Docs still show its banner saying the browser is no longer
+    /// supported, though it works, it is hidden.
+    func presentAsInstalledSafari() {
+        applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
+        userContentController.addUserScript(WKUserScript(source: Self.hideUnsupportedBrowserBanner,
+                                                         injectionTime: .atDocumentEnd,
+                                                         forMainFrameOnly: true))
+    }
+
+    /// The version of Safari installed on this Mac.
+    fileprivate static let safariVersion = Bundle(path: "/Applications/Safari.app")?
+        .infoDictionary?["CFBundleShortVersionString"] as? String ?? "26.0"
+
+    /// Hides Google Docs' banner saying the browser is no longer supported, the smallest block around its message,
+    /// whenever Docs shows it.
+    fileprivate static let hideUnsupportedBrowserBanner = """
+    (function () {
+        var message = 'browser version is no longer supported';
+        function hideBanner() {
+            var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            var node;
+            while ((node = walker.nextNode())) {
+                if (node.nodeValue.indexOf(message) === -1) { continue; }
+                var banner = node.parentElement;
+                while (banner.parentElement && banner.parentElement !== document.body &&
+                       banner.parentElement.innerText.trim().length < 300) {
+                    banner = banner.parentElement;
+                }
+                banner.style.display = 'none';
+            }
+        }
+        hideBanner();
+        var pending = false;
+        new MutationObserver(function () {
+            if (pending) { return; }
+            pending = true;
+            setTimeout(function () { pending = false; hideBanner(); }, 300);
+        }).observe(document.body, { childList: true, subtree: true });
+    })();
+    """
+}

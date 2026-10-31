@@ -26,6 +26,7 @@ struct HTMLDocumentView: NSViewRepresentable {
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = contentController
+        configuration.presentAsInstalledSafari()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         context.coordinator.webView = webView
