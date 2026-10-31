@@ -9,6 +9,16 @@ final class FocusReportingWebView: WKWebView {
     static let safariUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 
     var onFocusChange: ((Bool) -> Void)?
+    /// Run once, when the web view is first put in a window.
+    var whenInWindow: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil, let action = whenInWindow {
+            whenInWindow = nil
+            action()
+        }
+    }
 
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()

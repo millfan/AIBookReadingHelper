@@ -46,7 +46,11 @@ private struct NotesWebView: NSViewRepresentable {
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = FocusReportingWebView.safariUserAgent
         webView.uiDelegate = context.coordinator
-        webView.load(URLRequest(url: NotesView.address))
+        // Google Docs draws its text on a canvas sized for the screen it starts on. Loaded before the view is in a
+        // window, it takes the screen to be low resolution and draws blurred text on a Retina screen, so it waits.
+        webView.whenInWindow = { [weak webView] in
+            webView?.load(URLRequest(url: NotesView.address))
+        }
         return webView
     }
 
