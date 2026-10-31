@@ -36,6 +36,8 @@ struct NotesView: View {
 private struct NotesWebView: NSViewRepresentable {
     let reloadCount: Int
     @Binding var isTyping: Bool
+    /// The size set with Cmd+ and Cmd−, shared with the File and Internet views.
+    @AppStorage(SettingsKey.pageZoom) private var zoom = PageZoom.normal
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -46,8 +48,8 @@ private struct NotesWebView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
-        // Unlike the other panels, Notes doesn't present itself as Safari: Google Docs then draws its pages blurred,
-        // while with the web view's own name it draws them sharp, as in the Internet view.
+        // Unlike the other panels, Notes keeps the web view's own browser name, as the Internet view does, where
+        // Google Docs draws its pages sharp.
         webView.uiDelegate = context.coordinator
         webView.load(URLRequest(url: NotesView.address))
         return webView
@@ -55,6 +57,9 @@ private struct NotesWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: FocusReportingWebView, context: Context) {
         webView.reportFocus(to: $isTyping)
+        if webView.pageZoom != CGFloat(zoom) {
+            webView.pageZoom = CGFloat(zoom)
+        }
         if reloadCount != context.coordinator.reloadCount {
             context.coordinator.reloadCount = reloadCount
             webView.load(URLRequest(url: NotesView.address))
