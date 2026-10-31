@@ -309,8 +309,9 @@ struct ContentView: View {
     }
 
     /// Keeps both sides usable: at least 420 points on the left and 240 for the panel.
+    /// Rounded to whole points: a side panel that starts partway through a pixel draws its web pages blurred.
     private func clampedLeftWidth(_ width: CGFloat, in totalWidth: CGFloat) -> CGFloat {
-        min(max(width, 420), max(totalWidth - 240, 420))
+        min(max(width, 420), max(totalWidth - 240, 420)).rounded()
     }
 
     private func openDocument(_ url: URL) {
