@@ -46,7 +46,8 @@ private struct NotesWebView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         let webView = FocusReportingWebView(frame: .zero, configuration: configuration)
-        webView.customUserAgent = FocusReportingWebView.safariUserAgent
+        // Unlike the other panels, Notes doesn't present itself as Safari: Google Docs then draws its pages blurred,
+        // while with the web view's own name it draws them sharp, as in the Internet view.
         webView.uiDelegate = context.coordinator
         webView.load(URLRequest(url: NotesView.address))
         return webView
