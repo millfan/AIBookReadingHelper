@@ -28,9 +28,7 @@ struct GoogleTranslateView: View {
                 .focusable(false)
             }
             .padding(.horizontal)
-            // A whole number of points tall, so the page below starts on a pixel. Text sets a fractional height,
-            // which put the page partway through a pixel and blurred Google Docs, which draws its text on a canvas.
-            .frame(height: 36)
+            .padding(.vertical, 8)
             Divider()
             GoogleTranslateWebView(address: address, reloadCount: reloadCount, isTyping: $isTyping)
         }
